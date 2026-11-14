@@ -41,12 +41,12 @@ mawd/
 │
 └─ frontend/                               Next.js App Router + TypeScript + Tailwind
    ├─ app/
-   │  ├─ layout.tsx                        은님 (최소: html·body·폰트만, 사이드바 넣지 않기)
+   │  ├─ layout.tsx                        은님 (최소: html·body·폰트만, 사이드바 넣지 않기, 완료)
    │  ├─ page.tsx                          은님 (클라이언트에서 store_id 확인 → /home 또는 /onboarding)
    │  ├─ onboarding/                       은님 (사이드바 없음)
    │  ├─ e/[id]/                           박정연 (방문객용 안내, 사이드바 없음, 모바일 우선)
    │  └─ (main)/                           ← 괄호 폴더 = 주소에 안 나옴. 사이드바가 필요한 화면은 전부 여기
-   │     ├─ layout.tsx                     은님 (사이드바 + 본문 + 상세 패널)
+   │     ├─ layout.tsx                     은님 (사이드바 + 본문 + 상세 패널, 완료)
    │     ├─ home/                          은님
    │     ├─ content/, content/calendar/    은님
    │     ├─ brand/, brand/products/        은님

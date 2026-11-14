@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 import db
 from config import UPLOAD_DIR
-from routers import ads, content, events, products, public, stores
+from routers import ads, content, events, home, products, public, stores
 
 app = FastAPI(title="MAWD API", version="0.2.0")
 
@@ -55,6 +55,7 @@ app.include_router(products.router)
 app.include_router(events.router)
 app.include_router(ads.router)
 app.include_router(public.router)
+app.include_router(home.router)
 
 
 @app.get("/health")
