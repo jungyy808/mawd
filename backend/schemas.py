@@ -578,7 +578,33 @@ class SalesOut(BaseModel):
 
 # ---------- 성과·리포트 (Figma: 44 행사 마감 리포트) ----------
 
+class ReportOrder(BaseModel):
+    product_id: str
+    name: str
+    qty: int
+    status: str
+    order_date: str
+    expected_date: str
+    received_qty: int = 0
+    received_date: str = ""
+
+
+class AiSuggestion(BaseModel):
+    title: str
+    evidence: str = Field(description="근거 숫자")
+    action: str = Field(description="다음 행동")
+    assumption: str = Field("", description="적용 가정")
+
+
+class AiReportOut(BaseModel):
+    status: Literal["ok", "insufficient"]
+    suggestions: list[AiSuggestion] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list, description="확인이 필요한 데이터")
+    is_fallback: bool = False
+
+
 class ReportOut(BaseModel):
+    orders: list[ReportOrder] = Field(default_factory=list, description="발주·입고 내역 (상품별 발주·입고일)")
     revenue: int
     sold_qty: int
     goods_cost: int = Field(description="판매된 상품 원가")

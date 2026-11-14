@@ -1,13 +1,17 @@
 """행사 예산·손익, 현장 판매, 마감 리포트 (Figma: 39~45)."""
+import json
+import logging
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 import db
+import llm
 from deps import current_store
 from datetime import date
 
 from schemas import (
+    AiReportOut, AiSuggestion, ReportOrder,
     OrderIn, OrderOut, OrdersOut, OrderStatusIn, ReceiveIn,
     BudgetOut, BudgetProduct, BudgetProductIn, BudgetUpdate, ExpenseIn, ExpenseOut,
     ReportOut, SaleIn, SaleItemOut, SaleOut, SalesOut, StockRow,
@@ -203,7 +207,94 @@ def get_report(event_id: str, store: dict = Depends(current_store)):
         target_qty=target, gap_qty=(target - sales.total_qty) if target else None, by_payment=by_pay,
         achievement_rate=round(sales.total_qty / target, 4) if target else None, target_is_set=bool(target),
         basis=f"{_won(sales.total_revenue)} − 원가 {_won(goods_cost)} − 행사비 {_won(spend)}",
+        orders=[ReportOrder(product_id=o["product_id"], name=o["name"] or "삭제된 상품", qty=o["qty"], status=o["status"],
+                            order_date=o["order_date"], expected_date=o["expected_date"],
+                            received_qty=o["received_qty"] or 0, received_date=o["received_date"] or "")
+                for o in db.list_orders(event_id)],
     )
+
+
+# ---------- 다음 행사 AI 리포트 (RPT-02) ----------
+
+log = logging.getLogger("mawd")
+
+AI_REPORT_SYSTEM = """당신은 1인 브랜드의 팝업·마켓 판매 결과를 분석해 다음 행사를 제안하는 도우미입니다.
+주어진 집계 숫자만 근거로 씁니다. 없는 숫자를 만들지 않습니다.
+JSON으로만 답합니다: {"suggestions":[{"title":"한 줄 제목","evidence":"근거 숫자 (예: 포켓 노트 36/36개 판매, 매출 비중 83%)","action":"다음 행동 (구체 수량·날짜)","assumption":"적용 가정"}]}
+제안은 2~4개. 판매율이 높거나 낮은 상품의 다음 준비 수량, 입고가 늦었던 발주의 발주 시점, 손익과 비용 순서로 다룹니다. 말투는 존댓말, 짧게."""
+
+
+def _report_facts(ev: dict, r: ReportOut) -> dict:
+    total_rev = r.revenue or 0
+    products = []
+    for s in r.stock:
+        ready = s.prepared_qty + s.received_qty
+        rev = s.sold_qty * s.price
+        products.append({"상품": s.name, "판매": s.sold_qty, "확보": ready, "판매율": f"{round(s.sold_qty / ready * 100) if ready else 0}%",
+                         "매출": rev, "매출비중": f"{round(rev / total_rev * 100) if total_rev else 0}%", "잔량": s.remaining})
+    products.sort(key=lambda p: -p["판매"])
+    orders = [{"상품": o.name, "수량": o.qty, "발주일": o.order_date, "입고예정": o.expected_date,
+               "입고일": o.received_date or "미입고", "상태": o.status} for o in r.orders]
+    return {"행사": ev["name"], "기간": f"{ev.get('start_date') or '?'} ~ {ev.get('end_date') or '?'}", "매출": total_rev,
+            "판매수량": r.sold_qty, "실제손익": r.profit, "행사비": r.expenses, "상품": products, "발주입고": orders}
+
+
+def _fallback_suggestions(ev: dict, facts: dict) -> list[AiSuggestion]:
+    out: list[AiSuggestion] = []
+    ps = facts["상품"]
+    if ps:
+        top = ps[0]
+        out.append(AiSuggestion(
+            title=f"{top['상품']} 준비 수량 늘리기" if top["잔량"] == 0 else f"{top['상품']} 중심으로 진열·홍보",
+            evidence=f"{top['상품']} {top['판매']}/{top['확보']}개 판매 (판매율 {top['판매율']}), 매출 비중 {top['매출비중']}",
+            action=(f"비슷한 행사에서 {top['확보']}개보다 5~10% 많이 준비해 시험해 보세요." if top["잔량"] == 0
+                    else "부스 앞쪽 진열과 홍보 이미지의 대표 상품으로 쓰세요."),
+            assumption="비슷한 규모·방문객의 행사라고 가정"))
+        low = ps[-1]
+        if len(ps) > 1 and low["확보"] and low["판매"] / low["확보"] < 0.5:
+            out.append(AiSuggestion(
+                title=f"{low['상품']} 수량 줄이기", evidence=f"{low['상품']} {low['판매']}/{low['확보']}개 판매 (판매율 {low['판매율']}), 잔량 {low['잔량']}개",
+                action=f"다음 행사는 이번 판매량({low['판매']}개) 근처로 준비하고 남은 재고를 먼저 쓰세요.",
+                assumption="남은 재고를 다음 행사에 가져갈 수 있다고 가정"))
+    start = ev.get("start_date") or ""
+    for o in facts["발주입고"]:
+        got = o["입고일"] if o["입고일"] != "미입고" else ""
+        if start and got and got[:10] >= start[:10]:
+            out.append(AiSuggestion(
+                title=f"{o['상품']} 발주 앞당기기", evidence=f"{o['상품']} {o['수량']}개가 행사 기간 중 {got[5:10].replace('-', '/')}에 입고됨 (행사 시작 {start[5:10].replace('-', '/')})",
+                action="다음엔 행사 전날까지 받도록 발주일을 앞당기세요.", assumption="공급처 제작 기간이 이번과 같다고 가정"))
+            break
+    if facts["실제손익"] < 0:
+        out.append(AiSuggestion(
+            title="손익분기 먼저 확인", evidence=f"실제 손익 {facts['실제손익']:,}원 · 행사비 {facts['행사비']:,}원",
+            action="다음 행사는 참가비·운송비를 먼저 넣고 손익분기 판매량이 현실적인지 확인한 뒤 신청하세요.", assumption="판매 단가가 같다고 가정"))
+    return out
+
+
+@router.post("/{event_id}/report/ai", response_model=AiReportOut, summary="다음 행사를 위한 AI 리포트 (LINER)")
+def ai_report(event_id: str, store: dict = Depends(current_store)):
+    ev = _event_or_404(store["id"], event_id)
+    r = get_report(event_id, store)
+    missing = []
+    if r.sold_qty == 0:
+        missing.append("현장 판매 기록 (상품 관리 → 현장 판매 기록)")
+    if not r.stock:
+        missing.append("판매 상품과 준비 수량")
+    if missing:
+        return AiReportOut(status="insufficient", missing=missing)
+    if not r.orders:
+        missing.append("발주·입고 기록이 없어 발주 시점 제안은 빠져요")
+    facts = _report_facts(ev, r)
+    try:
+        data = llm.generate_json(AI_REPORT_SYSTEM, "행사 집계 (비식별)\n" + json.dumps(facts, ensure_ascii=False))
+        sugg = [AiSuggestion(**{k: str(x.get(k, "")) for k in ("title", "evidence", "action", "assumption")})
+                for x in (data.get("suggestions") or []) if x.get("title")][:4]
+        if not sugg:
+            raise ValueError("빈 제안")
+        return AiReportOut(status="ok", suggestions=sugg, missing=missing)
+    except Exception as e:  # noqa: BLE001 - LLM 실패 시 숫자 규칙 기반 제안
+        log.warning("AI 리포트 LLM 실패, 규칙 기반 사용: %s", e)
+        return AiReportOut(status="ok", suggestions=_fallback_suggestions(ev, facts), missing=missing, is_fallback=True)
 
 
 

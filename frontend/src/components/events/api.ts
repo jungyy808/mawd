@@ -219,7 +219,11 @@ export interface BudgetOut {
 export interface StockRow { product_id: string; name: string; price: number; prepared_qty: number; received_qty?: number; sold_qty: number; remaining: number }
 export interface SaleOut { id: string; payment_method: string; total: number; created_at: string; items: { product_id: string; name: string; qty: number; price: number }[] }
 export interface SalesOut { sales: SaleOut[]; stock: StockRow[]; total_revenue: number; total_qty: number }
+export type ReportOrder = { product_id: string; name: string; qty: number; status: "planned" | "ordered" | "received"; order_date: string; expected_date: string; received_qty: number; received_date: string };
+export type AiSuggestion = { title: string; evidence: string; action: string; assumption: string };
+export type AiReportOut = { status: "ok" | "insufficient"; suggestions: AiSuggestion[]; missing: string[]; is_fallback: boolean };
 export interface ReportOut {
+  orders?: ReportOrder[];
   revenue: number; sold_qty: number; goods_cost: number; expenses: number; profit: number; remaining_qty: number;
   stock: StockRow[]; target_qty: number | null; gap_qty: number | null; achievement_rate: number | null; target_is_set: boolean;
   by_payment: Record<string, number>; basis: string;
