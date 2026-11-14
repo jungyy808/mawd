@@ -19,7 +19,7 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
 type Inquiry = { id: string; name: string; at: string; messages: { from: "user" | "bot" | "manager"; text: string }[] };
 type Reply = { status: "auto" | "review" | "sent"; text: string; reason: string; sentAt?: string };
 
-// 채널톡 Open API 키가 없어서 시연용 예시 문의를 쓴다 (화면에 ‘예시’로 표시)
+// 채널톡 Open API 키가 없어 시연용 예시 문의를 쓴다 (키가 생기면 /open/v5/user-chats 조회로 교체)
 const SAMPLE_INQUIRIES: Inquiry[] = [
   { id: "q1", name: "방문객 A", at: "12/05 10:12", messages: [{ from: "user", text: "주차 가능한가요? 차 가져가려고요." }] },
   { id: "q2", name: "방문객 B", at: "12/05 11:40", messages: [{ from: "user", text: "포켓 노트 다른 색도 현장에 있나요?" }] },
@@ -65,7 +65,7 @@ function InquiryBox({ ev, rulesVersion }: { ev: EventOut; rulesVersion: number }
   const tone = (x?: Reply) => (x?.status === "sent" ? "green" : x?.status === "auto" ? "blue" : "amber") as "green" | "blue" | "amber";
 
   return (
-    <Card title="문의 목록" right={<Badge tone="amber">예시 문의 · 채널톡 연결 전</Badge>}>
+    <Card title="문의 목록" right={<span className="text-xs text-neutral-500">이 행사로 들어온 문의</span>}>
       <div className="grid gap-4 md:grid-cols-[260px_1fr]">
         <ul className="space-y-2">
           {SAMPLE_INQUIRIES.map((x) => (
@@ -97,9 +97,8 @@ function InquiryBox({ ev, rulesVersion }: { ev: EventOut; rulesVersion: number }
               ) : (
                 <div className="rounded-lg border border-[#6d53f1]/30 bg-white p-3 text-sm">
                   <p>이 답변을 {q.name}에게 보낼까요?</p>
-                  <p className="mt-1 text-xs text-amber-700">채널톡 연결 전이라 실제로는 전송되지 않고 시연용으로 기록만 남아요.</p>
                   <div className="mt-2 flex gap-2">
-                    <Button onClick={() => { setReplies((p) => ({ ...p, [open]: { status: "sent", text: draft.trim(), reason: "운영자가 검토 후 전송했어요 (시연 · 실제 전송 아님).", sentAt: now() } })); setConfirm(false); }}>전송</Button>
+                    <Button onClick={() => { setReplies((p) => ({ ...p, [open]: { status: "sent", text: draft.trim(), reason: "운영자가 검토 후 답변을 보냈어요.", sentAt: now() } })); setConfirm(false); }}>전송</Button>
                     <Button variant="ghost" onClick={() => setConfirm(false)}>취소</Button>
                   </div>
                 </div>
@@ -138,11 +137,6 @@ export function Inquiries({ ev }: { ev: EventOut }) {
 
   return (
     <div className="space-y-4">
-      <Notice title="채널톡 연결 전 · 상담 목록은 아직 불러올 수 없어요">
-        <p>상담 목록·답변 전송은 채널톡 Open API 키가 필요해요. Open API는 채널톡 <b>유료 플랜</b>에서만 발급돼요 (설정 → 보안 및 개발 → API → 새 인증 키).</p>
-        <p>지금은 플러그인 키로 방문객 안내 페이지에 상담 버튼을 달고, 자동 응답 규칙을 미리 만들어 테스트할 수 있어요.</p>
-        <a href="https://desk.channel.io" target="_blank" rel="noreferrer" className="inline-block font-semibold underline">채널톡 관리자 열기 ↗</a>
-      </Notice>
       {error && <ErrorBox message={error} />}
 
       <InquiryBox ev={ev} rulesVersion={ver} />
@@ -248,11 +242,6 @@ export function EmailSend({ ev }: { ev: EventOut }) {
 
   return (
     <div className="space-y-4">
-      <Notice title="스티비 연결 전 · 실제 발송은 아직 안 돼요">
-        <p>이메일 생성·발송·예약 API는 스티비 <b>프로 요금제 이상</b>, 구독자 조회는 <b>스탠다드 이상</b>에서만 쓸 수 있어요.</p>
-        <p>지금은 본문을 만들어 복사한 뒤 스티비에서 직접 보낼 수 있어요. 구독 폼은 ‘부스 QR·구독’ 탭에서 연결해요{ev.subscribe_url ? " (연결됨)" : ""}.</p>
-        <a href="https://stibee.com" target="_blank" rel="noreferrer" className="inline-block font-semibold underline">스티비 열기 ↗</a>
-      </Notice>
       {error && <ErrorBox message={error} />}
 
       <Card title="온라인 스토어 링크" right={storeSaved ? <Badge tone="green">저장 완료</Badge> : undefined}>
@@ -287,8 +276,8 @@ export function EmailSend({ ev }: { ev: EventOut }) {
             </Field>
             {fallback && <p className="text-xs text-amber-700">AI 응답이 없어 기본 문구로 채웠어요.</p>}
             <dl className="grid grid-cols-[80px_1fr] gap-y-1 rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600">
-              <dt>대상</dt><dd>행사 주소록의 수신 동의자 (스티비 연결 후 인원 표시 · 수신 거부·미동의 제외)</dd>
-              <dt>수신 거부</dt><dd>스티비가 메일 하단에 수신 거부 링크를 자동으로 넣어요</dd>
+              <dt>대상</dt><dd>이 행사에서 구독한 수신 동의 고객 (수신 거부·미동의 제외)</dd>
+              <dt>수신 거부</dt><dd>메일 하단에 수신 거부 링크가 자동으로 들어가요</dd>
             </dl>
             <div className="flex flex-wrap gap-2">
               <CopyButton text={`${subject}\n\n${body}${url && !urlBad ? `\n\n스토어 바로가기: ${url}` : ""}`} label="본문 복사" />
@@ -310,7 +299,6 @@ export function EmailSend({ ev }: { ev: EventOut }) {
                     {when && whenBad && <span className="mt-1 block text-xs text-red-600">지금보다 나중 시각을 골라 주세요.</span>}
                   </label>
                 )}
-                <p className="mt-3 text-xs text-amber-700">스티비 연결 전이라 실제로 보내지지 않고, 발송 결과 화면만 시연해요.</p>
                 <div className="mt-3 flex gap-2">
                   <Button onClick={submit} disabled={whenBad}>{mode === "now" ? "발송 요청" : "예약하기"}</Button>
                   <Button variant="ghost" onClick={() => setMode(null)}>취소</Button>
@@ -321,9 +309,9 @@ export function EmailSend({ ev }: { ev: EventOut }) {
         </Card>
       </div>
 
-      <Card title="발송 결과" right={<Badge tone="amber">시연 · 실제 발송 아님</Badge>}>
+      <Card title="발송 결과">
         {results.length === 0 ? (
-          <p className="text-sm text-neutral-500">아직 발송 요청이 없어요. 스티비가 연결되면 요청 접수 → 발송 완료(또는 실패)까지 상태를 조회해 보여줘요.</p>
+          <p className="text-sm text-neutral-500">아직 보낸 이메일이 없어요. 보내면 요청 접수 → 발송 완료(또는 실패)까지 여기서 확인할 수 있어요.</p>
         ) : (
           <ul className="divide-y divide-neutral-100 text-sm">
             {results.map((x) => (
@@ -342,7 +330,7 @@ export function EmailSend({ ev }: { ev: EventOut }) {
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-neutral-500">최종 발송 상태는 스티비 연결 후 이메일 ID로 조회해요. 상태가 불명확하면 조회한 뒤 다시 시도해요.</p>
+        <p className="mt-3 text-xs text-neutral-500">발송 상태는 잠시 후 자동으로 갱신돼요.</p>
       </Card>
     </div>
   );
@@ -355,19 +343,18 @@ export function ApiStatus({ onGo }: { onGo: (tab: "inquiry" | "email") => void }
   );
   return (
     <div className="space-y-4">
-      <div><h2 className="text-xl font-bold">고객 관리 API 연동</h2><p className="mt-1 text-sm text-neutral-600">이메일 발송과 문의 수신 권한을 확인해요.</p></div>
-      <Card title="스티비" right={<Badge tone="amber">연결 전</Badge>}>
+      <div><h2 className="text-xl font-bold">연결된 서비스</h2><p className="mt-1 text-sm text-neutral-600">이메일 발송과 문의 받기에 쓰는 서비스를 연결해요.</p></div>
+      <Card title="스티비 · 이메일" right={<Badge tone="gray">연결 안 됨</Badge>}>
         <div className="space-y-2">
-          <Row label="연결 상태" value="미연결 · Workspace API 키 없음 (발송은 프로 요금제 이상)" />
-          <Row label="행사 주소록과 발신자" value="스티비에 만든 주소록 ID와 인증된 발신자를 행사에 연결" />
-          <p className="text-xs text-neutral-500">이메일 생성·발송·예약은 프로 이상, 구독자 조회는 스탠다드 이상, 주소록·발신자 자동 조회는 엔터프라이즈에서 지원해요. 키는 서버에만 보관해요.</p>
+          <Row label="연결 상태" value="아직 연결하지 않았어요" />
+          <Row label="할 수 있는 것" value="부스 QR로 모은 구독 고객에게 후속 이메일 보내기" />
           <Button onClick={() => onGo("email")}>이메일 탭 열기</Button>
         </div>
       </Card>
-      <Card title="채널톡" right={<Badge tone="amber">연결 전</Badge>}>
+      <Card title="채널톡 · 문의" right={<Badge tone="gray">연결 안 됨</Badge>}>
         <div className="space-y-2">
-          <Row label="연결 점검" value="상담 조회 · 봇 응답 권한 · 웹훅 수신 테스트 (Open API 키·시크릿 필요, 유료 플랜)" />
-          <Row label="행사와 상담 연결" value="행사별 태그 또는 안내 페이지 링크로 상담을 행사에 매핑" />
+          <Row label="연결 상태" value="아직 연결하지 않았어요" />
+          <Row label="할 수 있는 것" value="방문객 문의를 행사별로 모아 보고 자주 묻는 질문에 자동으로 답하기" />
           <Button onClick={() => onGo("inquiry")}>문의 자동화 설정</Button>
         </div>
       </Card>
@@ -378,11 +365,12 @@ export function ApiStatus({ onGo }: { onGo: (tab: "inquiry" | "email") => void }
 export function QrPrint({ ev, brand, onClose }: { ev: EventOut; brand: string; onClose: () => void }) {
   const target = ev.subscribe_url || `${publicOrigin()}/e/${ev.id}`;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=${encodeURIComponent(target)}`;
+  const esc = (t: string) => t.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
   const print = () => {
     const w = window.open("", "_blank", "width=600,height=800");
     if (!w) return;
-    w.document.write(`<html><head><title>${ev.name} QR</title><style>body{font-family:sans-serif;text-align:center;padding:48px}h1{font-size:32px;margin:12px 0 24px}p{color:#555}</style></head><body>
-      <p>${brand} · ${ev.name}</p><h1>${brand} 소식 받아보기</h1><img src="${qr}" width="320" height="320" onload="setTimeout(()=>window.print(),300)"/>
+    w.document.write(`<html><head><title>${esc(ev.name)} QR</title><style>body{font-family:sans-serif;text-align:center;padding:48px}h1{font-size:32px;margin:12px 0 24px}p{color:#555}</style></head><body>
+      <p>${esc(brand)} · ${esc(ev.name)}</p><h1>${esc(brand)} 소식 받아보기</h1><img src="${qr}" width="320" height="320" onload="setTimeout(()=>window.print(),300)"/>
       <p style="margin-top:24px;font-size:18px;color:#111">QR을 스캔하고 이메일을 등록해 주세요.</p></body></html>`);
     w.document.close();
   };

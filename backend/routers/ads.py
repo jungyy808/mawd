@@ -54,7 +54,7 @@ def _naver_channel(store_id: str) -> AdChannel:
     mode = "live" if naver.enabled() else "sample"
     if not conn:
         return AdChannel(platform="naver", name="네이버 검색광고", product="파워링크", mode=mode, status="disconnected",
-                         message="광고 계정 번호(CUSTOMER_ID)를 입력해 연결하세요.")
+                         message="광고 계정 번호를 입력해 연결하세요.")
     # 키 없이 연결했다가 나중에 키를 넣은 경우: 실제로 다시 확인해서 안내 문구를 바꾼다
     if naver.enabled() and "샘플" in (conn["message"] or ""):
         try:
@@ -63,7 +63,7 @@ def _naver_channel(store_id: str) -> AdChannel:
         except naver.NaverError as e:
             log.warning("네이버 재확인 실패: %s", e)
             db.save_ad_connection(store_id, "naver", conn["customer_id"], "permission_needed",
-                                  "권한 확인 필요 · 계정 번호와 서비스 계정 초대 상태를 확인한 뒤 다시 시도하세요.")
+                                  "연결을 확인하지 못했어요 · 광고 계정 번호를 확인한 뒤 다시 시도해 주세요.")
         conn = db.get_ad_connection(store_id, "naver")
     return AdChannel(platform="naver", name="네이버 검색광고", product="파워링크", mode=mode, status=conn["status"],
                      customer_id_tail=_tail(conn["customer_id"]), checked_at=conn["checked_at"], message=conn["message"])
@@ -76,9 +76,9 @@ def list_channels(store: dict = Depends(current_store)):
     return [
         _naver_channel(store["id"]),
         AdChannel(platform="meta", name="메타 광고", product="Facebook · Instagram", mode="demo", status="preparing",
-                  message="준비 중 · 계정 미연동. 데모 미리보기만 가능해요."),
+                  message="준비 중이에요 · 미리보기만 볼 수 있어요."),
         AdChannel(platform="daangn", name="당근 광고", product="지역 홍보", mode="demo", status="preparing",
-                  message="준비 중 · 계정 미연동. 데모 미리보기만 가능해요."),
+                  message="준비 중이에요 · 미리보기만 볼 수 있어요."),
     ]
 
 
@@ -89,7 +89,7 @@ def connect_naver(body: NaverConnectIn, store: dict = Depends(current_store)):
     cid = body.customer_id.strip()
     if not naver.enabled():
         db.save_ad_connection(store["id"], "naver", cid, "connected",
-                              "서비스 API 키가 없어 샘플 데이터로 보여줘요. (화면 예시)")
+                              "지금은 예시 화면이에요. 광고 계정을 연결하면 실제 성과가 보여요.")
         return _naver_channel(store["id"])
     try:
         naver.list_campaigns(cid)
@@ -97,7 +97,7 @@ def connect_naver(body: NaverConnectIn, store: dict = Depends(current_store)):
     except naver.NaverError as e:
         log.warning("네이버 연결 확인 실패: %s", e)
         db.save_ad_connection(store["id"], "naver", cid, "permission_needed",
-                              "권한 확인 필요 · 계정 번호와 서비스 계정 초대 상태를 확인한 뒤 다시 시도하세요.")
+                              "연결을 확인하지 못했어요 · 광고 계정 번호를 확인한 뒤 다시 시도해 주세요.")
     return _naver_channel(store["id"])
 
 
@@ -115,7 +115,7 @@ def naver_stats(days: int = Query(7, ge=1, le=90), store: dict = Depends(current
     conn = db.get_ad_connection(store["id"], "naver")
 
     if not naver.enabled() or not conn or conn["status"] != "connected":
-        msg = "화면 예시 · 샘플 데이터" if naver.enabled() is False else "네이버 계정을 연결하면 실제 성과가 보여요. (지금은 샘플)"
+        msg = "예시 화면이에요. 광고 계정을 연결하면 실제 성과가 보여요."
         return NaverStatsOut(is_sample=True, since=since, until=until, summary=_summary(SAMPLE_CAMPAIGNS),
                              campaigns=SAMPLE_CAMPAIGNS, synced_at=_now_kst(), message=msg)
 
@@ -239,10 +239,10 @@ def naver_register(body: NaverRegisterIn, store: dict = Depends(current_store)):
 
     if not live:
         # 키·연결이 없으면 실제 호출 없이 등록 순서만 보여준다 (시연용)
-        steps = [RegisterStep(step=s, ok=True, message="샘플 · 실제로 등록하지 않았어요") for s in
+        steps = [RegisterStep(step=s, ok=True, message="예시 · 실제로 등록하지 않았어요") for s in
                  ("캠페인 생성 (중지)", "비즈채널 확인", "광고그룹 생성 (중지)", f"키워드 {len(keywords)}개 등록", "광고 문구 등록")]
         return NaverRegisterOut(status="ok", is_sample=True, steps=steps,
-                                message="네이버 계정이 연결되지 않아 샘플로 보여드렸어요. 계정을 연결하면 실제로 중지 상태로 등록돼요.")
+                                message="광고 계정이 연결되지 않아 예시로 보여드렸어요. 계정을 연결하면 실제로 중지 상태로 등록돼요.")
 
     cid = conn["customer_id"]
     steps: list[RegisterStep] = []

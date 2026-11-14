@@ -74,12 +74,12 @@ def integrations(store: dict = Depends(current_store)):
     liner_ok = bool(config.LINER_API_KEY)
     return [
         Integration(key="liner", name="Liner · 출처 검색", status="ready" if liner_ok else "not_connected",
-                    status_label="사용 가능" if liner_ok else "키 없음 · 직접 입력으로 진행",
-                    check="공개 안내 검색 테스트 · 실패 시 수동 입력"),
+                    status_label="사용 가능" if liner_ok else "지금은 사용할 수 없어요 · 행사 정보는 직접 입력할 수 있어요",
+                    check="행사 공고를 찾아 행사 정보를 자동으로 채워요"),
         Integration(key="channeltalk", name="채널톡 · 방문객 문의", status="not_connected",
-                    status_label="연결 전 · Open API 키와 웹훅 등록 필요",
-                    check="브랜드 채널톡에서 테스트 문의 확인"),
+                    status_label="연결 안 됨",
+                    check="방문객 문의를 행사별로 모아 보고 자주 묻는 질문에 자동으로 답해요"),
         Integration(key="stibee", name="스티비 · 구독과 메일", status="not_connected",
-                    status_label="연결 전 · 행사별 구독 폼 주소만 등록 가능",
-                    check="행사 주소록과 테스트 수신 확인"),
+                    status_label="연결 안 됨 · 행사별 구독 폼 주소는 등록할 수 있어요",
+                    check="부스 QR로 모은 구독 고객에게 후속 이메일을 보내요"),
     ]

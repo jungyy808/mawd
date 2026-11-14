@@ -40,7 +40,7 @@ export default function NaverConnect({ onChange }: { onChange?: (c: AdChannel) =
           <p className="flex flex-wrap items-center gap-2 font-semibold">
             네이버 검색광고 계정
             {ok ? <Badge tone="green">연결됨 ****{ch.customer_id_tail}</Badge> : ch.status === "permission_needed" ? <Badge tone="amber">권한 확인 필요</Badge> : <Badge>연결 안 됨</Badge>}
-            {ch.mode === "sample" && <Badge tone="amber">샘플 모드</Badge>}
+            {ch.mode === "sample" && <Badge tone="amber">예시 화면</Badge>}
           </p>
           <p className="mt-0.5 text-xs text-neutral-500">
             {ok ? ch.message || "캠페인·성과 조회와 중지 상태 등록을 할 수 있어요." : "연결하면 실제 키워드 검색수와 성과를 보고, 캠페인을 중지 상태로 등록할 수 있어요."}
@@ -53,14 +53,14 @@ export default function NaverConnect({ onChange }: { onChange?: (c: AdChannel) =
           </div>
         ) : (
           <div className="flex w-full gap-2 sm:w-auto">
-            <input className={`${inputCls} sm:w-44`} placeholder="CUSTOMER_ID (숫자)" value={cid} onChange={(e) => setCid(e.target.value.replace(/\D/g, ""))} />
+            <input className={`${inputCls} sm:w-44`} placeholder="광고 계정 번호 (숫자)" value={cid} onChange={(e) => setCid(e.target.value.replace(/\D/g, ""))} />
             <Button onClick={connect} disabled={cid.length < 3 || busy}>{busy ? "확인 중…" : "연결"}</Button>
           </div>
         )}
       </div>
       {!ok && (
         <p className="mt-2 text-xs text-neutral-500">
-          CUSTOMER_ID는 네이버 광고 관리자 → 도구 → API 사용 관리에서 확인해요.{" "}
+          광고 계정 번호는 네이버 광고 관리자 오른쪽 위 계정 이름 아래에서 확인할 수 있어요.{" "}
           <Link href="https://manage.searchad.naver.com" target="_blank" className="underline">네이버 광고 열기 ↗</Link>
         </p>
       )}

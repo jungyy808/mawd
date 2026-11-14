@@ -110,8 +110,8 @@ export default function SettingsPage() {
             {p("stibee") && <Partner name={p("stibee")!.name} status={p("stibee")!.status_label} ok={false} check={p("stibee")!.check}
               link={{ href: "/settings/customers", label: "구독·이메일 관리" }} />}
             <Partner name="광고 계정" ok={naverOk}
-              status={naver ? `네이버 파워링크 ${naverOk ? "연결됨" : naver.mode === "sample" ? "샘플 모드" : "연결 전"} · 메타/당근 준비 중` : "확인 중…"}
-              check={naver?.message || "네이버 검색광고 계정 번호(CUSTOMER_ID)로 연결"}
+              status={naver ? `네이버 파워링크 ${naverOk ? "연결됨" : "연결 안 됨"} · 메타/당근 준비 중` : "확인 중…"}
+              check={naverOk ? "캠페인 성과를 보고 광고를 중지 상태로 등록할 수 있어요" : "네이버 광고 계정 번호로 연결하면 성과를 보고 광고를 등록할 수 있어요"}
               link={{ href: "/ads/naver", label: "광고 계정 설정" }} />
           </div>
         </div>

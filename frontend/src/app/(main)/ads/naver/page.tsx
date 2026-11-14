@@ -47,7 +47,7 @@ export default function NaverAdsPage() {
         ) : (
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-60 flex-1">
-              <Field label="CUSTOMER_ID" hint="네이버 검색광고 > 도구 > API 사용 관리에서 확인">
+              <Field label="광고 계정 번호" hint="네이버 광고 관리자 오른쪽 위 계정 이름 아래에서 확인할 수 있어요">
                 <input className={inputCls} placeholder="예: 1234567" value={cid} onChange={(e) => setCid(e.target.value)} />
               </Field>
             </div>
