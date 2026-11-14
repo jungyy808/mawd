@@ -20,7 +20,7 @@ const fieldCls =
   "h-12 w-full rounded-[9px] bg-[#d9d9d9] px-4 text-[20px] text-black placeholder:font-medium placeholder:text-[#6e6d79] focus:outline-none focus:ring-2 focus:ring-[#6d53f1]";
 
 const cardInputCls =
-  "h-9 w-36 rounded-lg border border-neutral-300 bg-white px-2.5 text-right text-[15px] font-bold tabular-nums text-black focus:border-[#6d53f1] focus:outline-none";
+  "h-9 w-full rounded-lg border border-neutral-300 bg-white px-2.5 text-right text-[15px] font-bold tabular-nums text-black focus:border-[#6d53f1] focus:outline-none";
 
 export default function EventProductsPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,7 +42,7 @@ export default function EventProductsPage() {
 
   // 새 상품 추가 카드 상태
   const [adding, setAdding] = useState(false);
-  const [newDraft, setNewDraft] = useState({ name: "", price: "", qty: "30" });
+  const [newDraft, setNewDraft] = useState({ name: "", price: "", qty: "" });
   const [newImg, setNewImg] = useState<File | null>(null);
 
   const load = useCallback(async () => {
@@ -172,7 +172,7 @@ export default function EventProductsPage() {
       setProducts(nextProducts);
       setPicked(nextPicked);
       setQty(nextQty);
-      setNewDraft({ name: "", price: "", qty: "30" });
+      setNewDraft({ name: "", price: "", qty: "" });
       setNewImg(null);
       setAdding(false);
       await persistEventProducts(nextPicked, nextQty);
@@ -273,28 +273,28 @@ export default function EventProductsPage() {
               {isEditing ? (
                 <div className="mt-4 flex flex-1 flex-col justify-between gap-3">
                   <div className="space-y-2.5 text-[15px]">
-                    <div className="flex items-center justify-between gap-2">
-                      <label htmlFor={`name-${p.id}`} className="font-medium text-[#374151]">
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor={`name-${p.id}`} className="whitespace-nowrap text-sm font-medium text-[#374151]">
                         상품명
                       </label>
                       <input
                         id={`name-${p.id}`}
                         type="text"
-                        className={`${cardInputCls} w-44 text-left font-semibold`}
+                        className={`${cardInputCls} text-left font-semibold`}
                         value={editDraft.name}
                         onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
                       />
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <label htmlFor={`price-${p.id}`} className="font-medium text-[#374151]">
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor={`price-${p.id}`} className="whitespace-nowrap text-sm font-medium text-[#374151]">
                         판매가
                       </label>
-                      <div className="flex items-center gap-1">
+                      <div className="flex w-full items-center gap-1">
                         <input
                           id={`price-${p.id}`}
                           type="text"
                           inputMode="numeric"
-                          className={cardInputCls}
+                          className={`${cardInputCls} min-w-0 flex-1`}
                           value={editDraft.price}
                           onChange={(e) =>
                             setEditDraft((d) => ({ ...d, price: e.target.value.replace(/[^0-9]/g, "") }))
@@ -303,16 +303,16 @@ export default function EventProductsPage() {
                         <span className="text-sm font-bold text-black">원</span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <label htmlFor={`qty-${p.id}`} className="font-medium text-[#374151]">
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor={`qty-${p.id}`} className="whitespace-nowrap text-sm font-medium text-[#374151]">
                         판매 예정 수량
                       </label>
-                      <div className="flex items-center gap-1">
+                      <div className="flex w-full items-center gap-1">
                         <input
                           id={`qty-${p.id}`}
                           type="text"
                           inputMode="numeric"
-                          className={cardInputCls}
+                          className={`${cardInputCls} min-w-0 flex-1`}
                           value={editDraft.qty}
                           onChange={(e) =>
                             setEditDraft((d) => ({ ...d, qty: e.target.value.replace(/[^0-9]/g, "") }))
@@ -396,30 +396,30 @@ export default function EventProductsPage() {
             </label>
             <div className="mt-4 flex flex-1 flex-col justify-between gap-3">
               <div className="space-y-2.5 text-[15px]">
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="new-product-name" className="font-medium text-[#374151]">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="new-product-name" className="whitespace-nowrap text-sm font-medium text-[#374151]">
                     상품명
                   </label>
                   <input
                     id="new-product-name"
                     type="text"
-                    placeholder="포켓 노트"
-                    className={`${cardInputCls} w-44 text-left font-semibold`}
+                    placeholder="예: 포켓 노트"
+                    className={`${cardInputCls} text-left font-semibold`}
                     value={newDraft.name}
                     onChange={(e) => setNewDraft((d) => ({ ...d, name: e.target.value }))}
                   />
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="new-product-price" className="font-medium text-[#374151]">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="new-product-price" className="whitespace-nowrap text-sm font-medium text-[#374151]">
                     판매가
                   </label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex w-full items-center gap-1">
                     <input
                       id="new-product-price"
                       type="text"
                       inputMode="numeric"
-                      placeholder="12000"
-                      className={cardInputCls}
+                      placeholder="예: 12000"
+                      className={`${cardInputCls} min-w-0 flex-1`}
                       value={newDraft.price}
                       onChange={(e) =>
                         setNewDraft((d) => ({ ...d, price: e.target.value.replace(/[^0-9]/g, "") }))
@@ -428,17 +428,17 @@ export default function EventProductsPage() {
                     <span className="text-sm font-bold text-black">원</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="new-product-qty" className="font-medium text-[#374151]">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="new-product-qty" className="whitespace-nowrap text-sm font-medium text-[#374151]">
                     판매 예정 수량
                   </label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex w-full items-center gap-1">
                     <input
                       id="new-product-qty"
                       type="text"
                       inputMode="numeric"
-                      placeholder="30"
-                      className={cardInputCls}
+                      placeholder="예: 30"
+                      className={`${cardInputCls} min-w-0 flex-1`}
                       value={newDraft.qty}
                       onChange={(e) =>
                         setNewDraft((d) => ({ ...d, qty: e.target.value.replace(/[^0-9]/g, "") }))

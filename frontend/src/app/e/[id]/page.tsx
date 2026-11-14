@@ -87,7 +87,7 @@ export default function PublicEventPage() {
   if (notPublic) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center text-neutral-900">
-        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHY</p>
+        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHKIT</p>
         <p className="mt-6 text-lg font-semibold">아직 공개되지 않은 행사예요</p>
         <p className="mt-2 text-sm text-neutral-500">행사 안내가 준비되면 이 주소에서 볼 수 있어요.<br />링크를 받은 곳에서 잠시 후 다시 열어 주세요.</p>
       </main>

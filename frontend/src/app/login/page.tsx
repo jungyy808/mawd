@@ -32,7 +32,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f6fb] px-4 py-10">
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl bg-white p-7 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHY</p>
+        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHKIT</p>
         <h1 className="mt-5 text-2xl font-bold text-black">로그인</h1>
         <p className="mt-1 text-sm text-[#55545e]">내 행사에 접근하려면 운영자 계정으로 로그인하세요.</p>
         <div className="mt-6 space-y-3">

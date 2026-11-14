@@ -250,7 +250,7 @@ export function EmailSend({ ev }: { ev: EventOut }) {
         <Card title="AI 본문 초안">
           <div className="space-y-3">
             <Field label="목적" required><input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} /></Field>
-            <Field label="강조 내용"><input className={inputCls} value={emphasis} onChange={(e) => setEmphasis(e.target.value)} placeholder="예: 스토어 첫 구매 10% 할인 코드 BOOTHY10" /></Field>
+            <Field label="강조 내용"><input className={inputCls} value={emphasis} onChange={(e) => setEmphasis(e.target.value)} placeholder="예: 스토어 첫 구매 10% 할인 코드 BOOTHKIT10" /></Field>
             <Field label="말투"><input className={inputCls} value={tone} onChange={(e) => setTone(e.target.value)} /></Field>
             <Button onClick={draft} disabled={busy || !purpose.trim()}>{busy ? "작성 중…" : subject ? "다시 만들기" : "AI로 본문 만들기"}</Button>
             <p className="text-xs text-neutral-500">AI에는 행사·상품 정보만 보내고 구독자 주소는 보내지 않아요.</p>

@@ -20,7 +20,7 @@ export default function LogoutPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f6fb] px-4 py-10">
       <div className="w-full max-w-md rounded-2xl bg-white p-7 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHY</p>
+        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHKIT</p>
         {done ? (
           <>
             <h1 className="mt-5 text-2xl font-bold text-black">로그아웃했어요</h1>

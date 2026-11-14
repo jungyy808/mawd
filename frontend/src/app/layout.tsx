@@ -10,7 +10,7 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "AI 마케터",
+  title: "BOOTHKIT",
   description: "행사 준비부터 홍보 콘텐츠·광고까지 한곳에서 돕는 AI 마케터",
 };
 

@@ -31,7 +31,7 @@ export default function OnboardingPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6">
-        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHY</p>
+        <p className="text-2xl font-bold text-[#6d53f1]">BOOTHKIT</p>
         <h1 className="mt-4 text-xl font-bold text-neutral-900">브랜드를 등록하고 시작하세요</h1>
         <p className="mt-1 text-sm text-neutral-500">팝업·마켓·부스 준비부터 손익, 홍보까지 한곳에서 관리해요.</p>
         <div className="mt-6 space-y-4">

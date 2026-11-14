@@ -1,5 +1,5 @@
 "use client";
-// Figma "BOOTHY" 사이드 메뉴 (node 20:7654): 로고 + 행사 선택 + 메뉴 8개. 폭 232px.
+// Figma "BOOTHKIT" 사이드 메뉴 (node 20:7654): 로고 + 행사 선택 + 메뉴 8개. 폭 232px.
 // 색: 보라 #6d53f1 (로고·선택된 메뉴), 회색 #9998a4 (선택 안 된 행사 이름).
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -90,7 +90,7 @@ export default function SideNav() {
   return (
     <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 overflow-y-auto bg-white pt-[34px] pb-6 md:block">
       <Link href="/home" className="ml-[33px] block w-fit text-2xl leading-normal font-bold text-[#6d53f1]">
-        BOOTHY
+        BOOTHKIT
       </Link>
       <EventSwitcher events={events} current={current} onChoose={choose} />
       <nav aria-label="서비스 메뉴" className="mt-[27px] mr-[17px] ml-[21px] flex flex-col gap-[27px]">

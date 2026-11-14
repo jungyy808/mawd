@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import ServiceMenu from "@/components/nav/ServiceMenu";
 import SideNav from "@/components/nav/SideNav";
 
-// 왼쪽 사이드 메뉴(Figma BOOTHY, 232px) + 본문. 본문은 최대 1180px, 여백 26px (모바일 16px).
+// 왼쪽 사이드 메뉴(Figma BOOTHKIT, 232px) + 본문. 본문은 최대 1180px, 여백 26px (모바일 16px).
 // 좁은 화면(md 미만)에서는 사이드 메뉴를 숨기고 기존 상단 메뉴를 쓴다.
 export default function MainLayout({
   children,

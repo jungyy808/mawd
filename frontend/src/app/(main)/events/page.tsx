@@ -1,5 +1,5 @@
 "use client";
-// Figma 디자인 · 내 행사 (BOOTHY)
+// Figma 디자인 · 내 행사 (BOOTHKIT)
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type BudgetOut, type EventOut, type Phase, api, fmtRange, notifyEventDeleted, phaseLabel, phaseOf } from "@/components/events/api";

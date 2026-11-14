@@ -12,7 +12,7 @@ export default function ServiceMenu({ showNav = true }: { showNav?: boolean }) {
           href="/home"
           className="shrink-0 text-lg leading-normal font-bold whitespace-nowrap text-[#6d53f1]"
         >
-          BOOTHY
+          BOOTHKIT
         </Link>
         <div className="flex-1" />
         {showNav && (

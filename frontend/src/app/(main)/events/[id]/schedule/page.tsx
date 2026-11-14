@@ -31,6 +31,7 @@ export default function SchedulePage() {
   const [view, setView] = useState<"month" | "week">("month");
   const [on, setOn] = useState<Record<Kind, boolean>>({ order: true, prep: true, onsite: true, promo: true });
   const [cursor, setCursor] = useState<Date>(() => (ev.start_date ? parse(ev.start_date) : new Date()));
+  const [picked, setPicked] = useState<string>(() => ev.start_date ?? ymd(new Date())); // 선택한 날 (Figma: 선택한 날 패널)
 
   const load = useCallback(() => {
     Promise.all([api<ChecklistOut>(`/api/events/${ev.id}/checklist`), api<OrdersOut>(`/api/events/${ev.id}/orders`)])
@@ -124,14 +125,19 @@ export default function SchedulePage() {
             const list = byDate[key] ?? [];
             const dim = view === "month" && d.getMonth() !== cursor.getMonth();
             return (
-              <div key={key} className={`border-r border-b border-neutral-100 p-1.5 ${view === "month" ? "min-h-[96px]" : "min-h-[220px]"} ${dim ? "bg-neutral-50/70" : ""}`}>
+              <div key={key} role="button" tabIndex={0} onClick={() => setPicked(key)} onKeyDown={(e) => e.key === "Enter" && setPicked(key)}
+                className={`cursor-pointer border-r border-b border-neutral-100 p-1 sm:p-1.5 ${view === "month" ? "min-h-[64px] sm:min-h-[96px]" : "min-h-[120px] sm:min-h-[220px]"} ${dim ? "bg-neutral-50/70" : ""} ${picked === key ? "ring-2 ring-inset ring-[#6d53f1]" : "hover:bg-[#6d53f1]/5"}`}>
                 <div className={`mb-1 text-xs ${key === today ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#6d53f1] font-semibold text-white" : dim ? "text-neutral-300" : "text-neutral-600"}`}>{d.getDate()}</div>
-                <div className="space-y-1">
+                {/* 휴대폰: 글자가 잘리지 않게 점으로만 표시하고, 날짜를 누르면 아래에 목록 */}
+                <div className="flex flex-wrap gap-1 sm:hidden">
+                  {list.map((i, n) => <span key={n} className={`h-1.5 w-1.5 rounded-full ${KIND[i.kind].dot} ${i.done ? "opacity-40" : ""}`} />)}
+                </div>
+                <div className="hidden space-y-1 sm:block">
                   {(view === "month" ? list.slice(0, 3) : list).map((i, n) => (
-                    <Link key={n} href={i.href ?? base} title={i.title}
-                      className={`block truncate rounded px-1.5 py-0.5 text-[11px] font-medium ${KIND[i.kind].chip} ${i.done ? "line-through opacity-60" : ""}`}>
+                    <p key={n} title={i.title}
+                      className={`line-clamp-2 break-keep rounded px-1.5 py-0.5 text-[11px] font-medium leading-snug ${KIND[i.kind].chip} ${i.done ? "line-through opacity-60" : ""}`}>
                       {i.title}
-                    </Link>
+                    </p>
                   ))}
                   {view === "month" && list.length > 3 && <p className="px-1 text-[11px] text-neutral-500">+{list.length - 3}개</p>}
                 </div>
@@ -140,6 +146,31 @@ export default function SchedulePage() {
           })}
         </div>
       </div>
+
+      {(() => {
+        const d = parse(picked);
+        const list = byDate[picked] ?? [];
+        return (
+          <Card title={`선택한 날 · ${d.getMonth() + 1}월 ${d.getDate()}일 ${"일월화수목금토"[d.getDay()]}요일`}>
+            {list.length === 0 ? (
+              <p className="text-sm text-neutral-500">이날은 일정이 없어요.</p>
+            ) : (
+              <ul className="divide-y divide-neutral-100">
+                {list.map((i, n) => (
+                  <li key={n} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${KIND[i.kind].dot}`} />
+                      <span className="text-xs text-neutral-500">{KIND[i.kind].label}</span>
+                      <span className={`font-medium ${i.done ? "text-neutral-400 line-through" : ""}`}>{i.title}</span>
+                    </span>
+                    <Link href={i.href ?? base} className="shrink-0 text-xs font-semibold text-[#6d53f1] hover:underline">일정 상세 ↗</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      })()}
 
       <Card title="발주·입고 일정">
         {orders.orders.length === 0 ? (
