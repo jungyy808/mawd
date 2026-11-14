@@ -98,7 +98,7 @@ export default function HomePage() {
           {todos.length === 0 ? (
             <p className="mt-[33px] text-base font-medium opacity-80">
               지금 할 일이 없어요.{" "}
-              {event && <Link href={`/events/${event.id}/schedule`} className="underline">AI 체크리스트 만들기 ↗</Link>}
+              {event && <Link href={`/events/${event.id}`} className="underline">AI 체크리스트 만들기 ↗</Link>}
             </p>
           ) : (
             <ul className="mt-[33px] flex flex-col gap-5">

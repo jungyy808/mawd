@@ -2,7 +2,7 @@
 // 네이버 파워링크 AI 캠페인 초안 (광고 화면 · 행사 홍보·광고 탭에서 같이 사용)
 import { useEffect, useState } from "react";
 import { type EventOut, api, publicOrigin, won } from "@/components/events/api";
-import { Badge, Button, Card, ErrorBox, Field, Spinner, inputCls } from "@/components/events/ui";
+import { Badge, Button, Card, ErrorBox, Field, Spinner, copyText as copyToClipboard, inputCls } from "@/components/events/ui";
 import type { NaverDraft, NaverRegisterOut } from "./types";
 
 export default function DraftCard({ eventId }: { eventId?: string }) {
@@ -72,7 +72,7 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
     if (!draft) return;
     const t = [`캠페인: ${draft.campaign_name}`, `광고그룹: ${draft.adgroup_name}`, `제목: ${draft.title}`, `설명: ${draft.description}`,
       `키워드: ${draft.keywords.map((k) => `${k.keyword}(${k.bid}원)`).join(", ")}`, `일 예산: ${draft.daily_budget}원`, `연결 URL: ${draft.landing_url}`].join("\n");
-    navigator.clipboard.writeText(t);
+    copyToClipboard(t).then((ok) => { if (!ok) window.prompt("아래 내용을 복사하세요 (⌘C)", t); });
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
 

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { type BudgetOut, type ChecklistOut, type EventStatus, api, won } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { Card, inputCls } from "@/components/events/ui";
+import { Checklist } from "@/components/events/sections";
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
@@ -26,7 +27,7 @@ function Go({ href, children, primary }: { href: string; children: React.ReactNo
 }
 
 export default function EventOverviewPage() {
-  const { ev, patch } = useEvent();
+  const { ev, patch, reload } = useEvent();
   const router = useRouter();
   const [b, setB] = useState<BudgetOut | null>(null);
   const [ck, setCk] = useState<ChecklistOut | null>(null);
@@ -80,9 +81,11 @@ export default function EventOverviewPage() {
         </div>
       </Card>
 
+      <Checklist id={ev.id} onChange={reload} />
+
       <Card title="행사 준비와 고객 관리">
         <div className="space-y-3">
-          <Go href={`${base}/schedule`}>부스 운영 일정·체크리스트{ck ? ` (${ck.done}/${ck.total} 완료)` : ""}</Go>
+          <Go href={`${base}/schedule`}>행사 운영 캘린더 (발주·입고·준비·현장)</Go>
           <Go href={`${base}/customers`}>부스 QR과 이메일 구독</Go>
           <Go href={`${base}/report`}>행사 성과·후속 이메일</Go>
         </div>

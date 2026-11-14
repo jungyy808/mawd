@@ -1,7 +1,7 @@
 "use client";
 // 행사·광고 화면 공통 UI (Figma 와이어프레임 톤: 흰 배경, 회색 테두리, 검정 버튼)
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 export function PageHeader({ crumb, title, desc, action }: { crumb: string; title: string; desc?: string; action?: ReactNode }) {
   return (
@@ -92,4 +92,50 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
 
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="rounded-xl border border-dashed border-neutral-300 p-10 text-center text-sm text-neutral-500">{children}</div>;
+}
+
+// 클립보드 복사: 최신 API가 막힌 브라우저(사파리 일부, http 등)에서도 되게 예전 방식으로 한 번 더 시도한다
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* 아래 방식으로 다시 시도 */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+// 누르면 복사하고 "복사됨 ✓"을 잠깐 보여주는 버튼. 복사가 막히면 주소를 띄워 직접 복사하게 한다.
+export function CopyButton({ text, label = "링크 복사", className = "" }: { text: string; label?: string; className?: string }) {
+  const [state, setState] = useState<"idle" | "ok" | "fail">("idle");
+  return (
+    <button
+      type="button"
+      className={className || "rounded-md bg-white px-3 py-1.5 text-xs font-semibold ring-1 ring-neutral-200 hover:bg-neutral-50"}
+      onClick={async () => {
+        const ok = await copyText(text);
+        if (!ok) window.prompt("아래 주소를 복사하세요 (⌘C)", text);
+        setState(ok ? "ok" : "fail");
+        setTimeout(() => setState("idle"), 1800);
+      }}
+    >
+      {state === "ok" ? "복사됨 ✓" : label}
+    </button>
+  );
 }

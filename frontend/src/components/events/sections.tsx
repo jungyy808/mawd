@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   type CheckStatus, type ChecklistOut, type EventOut, type PlanOut, api, pct, publicOrigin, won,
 } from "@/components/events/api";
-import { Badge, Button, Card, Empty, ErrorBox, Spinner, inputCls } from "@/components/events/ui";
+import { Badge, Button, Card, CopyButton, Empty, ErrorBox, Spinner, inputCls } from "@/components/events/ui";
 
 const NEXT_STATUS: Record<CheckStatus, CheckStatus> = { todo: "doing", doing: "done", done: "todo" };
 const CHECK_LABEL: Record<CheckStatus, string> = { todo: "미완료", doing: "진행 중", done: "완료" };
@@ -233,7 +233,7 @@ export function VisitorPage({ ev, patch }: { ev: EventOut; patch: (b: Partial<Ev
             <div className="min-w-0 text-xs">
               <p className="font-medium text-neutral-800">부스 QR · 공개 안내 페이지 URL</p>
               <p className="mt-1 break-all text-neutral-500">{url}</p>
-              <button className="mt-1 underline" onClick={() => navigator.clipboard.writeText(url)}>링크 복사</button>
+              <CopyButton text={url} className="mt-1 text-xs font-semibold text-[#6d53f1] underline" />
               <p className="mt-1 text-neutral-500">이 URL을 네이버 광고와 블로그·인스타 홍보에서 사용합니다.</p>
             </div>
           </div>
