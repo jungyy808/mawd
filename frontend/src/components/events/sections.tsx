@@ -65,7 +65,7 @@ export function Checklist({ id, onChange }: { id: string; onChange: () => void }
       {!data ? (
         <Spinner text="불러오는 중" />
       ) : busy ? (
-        <Spinner text={busy === "liner" ? "Liner로 준비 팁을 찾고 체크리스트를 만드는 중" : "AI가 체크리스트를 만드는 중"} />
+        <Spinner text={busy === "liner" ? "다른 셀러들의 준비 팁을 찾아 체크리스트를 보강하는 중" : "AI가 체크리스트를 만드는 중"} />
       ) : (
         <>
           {data.items.length === 0 ? (
@@ -110,7 +110,7 @@ export function Checklist({ id, onChange }: { id: string; onChange: () => void }
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button onClick={() => suggest(false)}>AI 체크리스트 {data.total ? "다시 제안" : "제안"}</Button>
-            <Button variant="secondary" onClick={() => suggest(true)}>Liner로 준비 체크리스트 보강</Button>
+            <Button variant="secondary" onClick={() => suggest(true)}>웹에서 준비 팁 찾아 보강</Button>
           </div>
           <p className="mt-2 text-xs text-neutral-500">다시 제안해도 진행 중·완료 항목은 그대로 남아요.</p>
         </>

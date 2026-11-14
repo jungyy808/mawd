@@ -41,8 +41,8 @@ export default function EventNewPage() {
         <Card>
           <div className="flex flex-col items-center py-12 text-center">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#6d53f1]/20 border-t-[#6d53f1]" />
-            <p className="mt-5 text-lg font-semibold">공고 정보를 가져오는 중</p>
-            <p className="mt-1 text-sm text-neutral-500">Liner로 공개 공고를 확인하고 있어요. 15~40초 정도 걸려요.</p>
+            <p className="mt-5 text-lg font-semibold">행사 정보를 채우는 중</p>
+            <p className="mt-1 text-sm text-neutral-500">AI가 공고를 찾아 읽고 있어요. 15~40초 정도 걸려요.</p>
             <p className="text-sm text-neutral-500">확인된 행사 정보가 표에 채워지면 검토 화면으로 이동합니다.</p>
           </div>
         </Card>
@@ -78,7 +78,7 @@ export default function EventNewPage() {
               <input className={inputCls} placeholder="예: 연남 겨울 팝업 참가자 모집" value={query} onChange={(e) => setQuery(e.target.value)} />
             </Field>
             <Button onClick={start} disabled={!url.trim() && !query.trim()} className="w-full">
-              Liner로 가져오기
+              공고에서 정보 가져오기
             </Button>
             <p className="text-xs text-neutral-500">공고의 행사명·기간·장소·신청 마감 등을 가져옵니다. 확인 후 다음 단계로 이동합니다.</p>
           </div>
