@@ -21,3 +21,6 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 LLM_IMAGE_MAX_SIDE = 1568
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
