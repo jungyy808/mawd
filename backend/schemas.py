@@ -386,3 +386,44 @@ class PublicEventOut(BaseModel):
     products: list[PublicProduct]
     subscribe_url: str
     chat_plugin_key: str
+
+
+# ---------- 홈 (Figma: S06 홈대시보드) ----------
+
+class HomeEvent(BaseModel):
+    id: str
+    name: str
+    start_date: str | None
+    end_date: str | None
+    booth_no: str
+    d_day: int | None
+    progress: float  # 전체 준비 진행률 0~1
+    status: EventStatus
+
+
+class HomeTodo(BaseModel):
+    id: str
+    title: str
+    due_date: str | None
+    done: bool = False
+
+
+class HomeCardRow(BaseModel):
+    label: str
+    value: str
+
+
+class HomeCard(BaseModel):
+    key: str  # orders | promo | ai_inbox | deadlines | budget | onsite
+    title: str
+    headline: str
+    rows: list[HomeCardRow]
+    href: str
+
+
+class HomeOut(BaseModel):
+    event: HomeEvent | None
+    todo_total: int
+    todos: list[HomeTodo]
+    cards: list[HomeCard]
+    is_sample: bool = False
