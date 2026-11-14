@@ -1,7 +1,7 @@
 "use client";
 // Figma: 블로그·인스타 게시물 만들기 → 네이버 블로그 · 이미지와 글 / 인스타그램 · 이미지와 캡션 → 초안 저장 완료 · 캘린더 반영
 import { useRef, useState } from "react";
-import { api } from "@/components/events/api";
+import { api, phaseOf } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { Badge, Button, Card, CopyButton, ErrorBox, Field, inputCls } from "@/components/events/ui";
 import { Body, saveContent } from "@/components/ads/Generated";
@@ -42,6 +42,7 @@ function Actions({ onSave, onSchedule, saved, scheduled, canSchedule }: {
 
 export default function ContentPage() {
   const { ev } = useEvent();
+  const ended = phaseOf(ev) === "종료";
   const [channel, setChannel] = useState<Channel>("all");
   const [desc, setDesc] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -116,7 +117,8 @@ export default function ContentPage() {
             {ev.name} · {ev.start_date ?? "날짜 미정"} · {ev.location || "장소 미정"}
             {ev.products.length > 0 && ` · 상품 ${ev.products.map((p) => p.name).join(", ")}`} 정보를 같이 참고해요.
           </p>
-          <Field label="요구사항" required hint="예: 겨울 한정 포켓 노트 첫 공개, 방문 시 스티커 증정을 강조해 주세요">
+          {ended && <p className="rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600">끝난 행사예요. 방문 감사·행사 후기·온라인 스토어 안내 글로 만들어요.</p>}
+          <Field label="요구사항" required hint={ended ? "예: 방문해 주셔서 감사 인사, 행사에서 인기 많았던 상품을 온라인 스토어에서 안내" : "예: 겨울 한정 포켓 노트 첫 공개, 방문 시 스티커 증정을 강조해 주세요"}>
             <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className={inputCls} placeholder="무엇을 알리고 싶은지 한두 문장으로 적어 주세요" />
           </Field>
           <Field label="키워드" hint="선택 · 예: 연남동 팝업, 다꾸">

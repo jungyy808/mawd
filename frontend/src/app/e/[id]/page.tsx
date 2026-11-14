@@ -114,6 +114,12 @@ export default function PublicEventPage() {
       <h1 className="mt-1 text-3xl font-bold leading-tight">{ev.name}</h1>
       <p className="mt-2 text-sm text-neutral-500">{ev.brand_name} · 방문객용 행사 안내</p>
 
+      {ev.end_date && ev.end_date.slice(0, 10) < new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) && (
+        <div className="mt-6 rounded-2xl bg-neutral-100 p-5 text-sm">
+          <p className="font-semibold">끝난 행사예요. 와 주셔서 고마워요!</p>
+          <p className="mt-1 text-neutral-600">다음 행사와 새 소식은 아래 구독으로 받아보세요.</p>
+        </div>
+      )}
       <section className="mt-6 rounded-2xl bg-neutral-50 p-5">
         <p className="text-xs font-semibold text-neutral-500">방문 안내</p>
         <p className="mt-2 text-lg font-semibold">{fmtRange(ev.start_date, ev.end_date)}</p>

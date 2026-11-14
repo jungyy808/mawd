@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { type BudgetOut, type ChecklistOut, type EventStatus, api, notifyEventDeleted, won } from "@/components/events/api";
+import { type BudgetOut, type ChecklistOut, type EventStatus, api, notifyEventDeleted, phaseOf, won } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { Card, inputCls } from "@/components/events/ui";
 import { Checklist } from "@/components/events/sections";
@@ -49,9 +49,23 @@ export default function EventOverviewPage() {
     router.push("/events");
   };
 
+  const ended = phaseOf(ev) === "종료";
+
   return (
     <div className="space-y-4">
-      {b && !b.has_budget ? (
+      {ended && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#9998a4] px-6 py-6 text-white">
+          <div>
+            <p className="text-xl font-bold">행사가 끝났어요. 수고 많으셨어요!</p>
+            <p className="mt-1 text-sm text-white/85">판매 결과와 실제 손익을 확인하고, 다음 행사를 위한 AI 리포트와 후속 이메일을 준비해 보세요.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/events/${ev.id}/report`} className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-[#55545e]">성과·리포트 보기</Link>
+            <Link href={`/events/${ev.id}/customers`} className="rounded-lg border border-white/70 px-5 py-3 text-sm font-semibold text-white">후속 이메일 준비</Link>
+          </div>
+        </div>
+      )}
+      {!ended && b && !b.has_budget ? (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#6d53f1] px-6 py-6 text-white">
           <div>
             <p className="text-xl font-bold">예산 입력하고 손익분기점을 알아봐요.</p>
@@ -73,14 +87,14 @@ export default function EventOverviewPage() {
       )}
       {b?.has_budget && <p className="-mt-2 text-xs text-neutral-500">예상치는 준비 수량을 전부 판매한다고 가정한 값이에요.</p>}
 
-      <Card title="다음 할 일">
+      {!ended && <Card title="다음 할 일">
         <div className="space-y-3">
           <Go href={`${base}/budget`} primary>예산·손익 계획 확인</Go>
           {short.map((p) => <Go key={p.product_id} href={`${base}/stock`}>{p.name} 부족 수량·발주 확인</Go>)}
           {nextTodo && <Go href={`${base}/schedule`}>{nextTodo.d_label} · {nextTodo.title}</Go>}
           <Go href={`${base}/stock`}>현장 판매 기록</Go>
         </div>
-      </Card>
+      </Card>}
 
       <Checklist id={ev.id} onChange={reload} />
 

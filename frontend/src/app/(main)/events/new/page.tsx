@@ -162,13 +162,14 @@ export default function EventNewPage() {
   return (
     <div className="w-full max-w-[1093px] pb-10 md:ml-[33px] md:mt-5">
       <h1 className="text-[32px] font-bold leading-[38px] text-black">행사 생성</h1>
-      <p className="mt-3 text-[20px] font-medium leading-6 text-[#6e6d79]">참가하려는 행사의 모집·참가 안내 페이지에서 정보를 가져와요</p>
+      <p className="mt-3 text-[20px] font-medium leading-6 text-[#6e6d79]">참가하려는 행사를 검색하거나 링크를 넣으면 모집·참가 안내에서 정보를 가져와요</p>
 
       <section className="mt-[55px] rounded-[15px] bg-white px-5 pb-5 pt-7 shadow-[0px_0px_18px_2px_rgba(0,0,0,0.09)] sm:px-[35px]">
-        <h2 className="text-[20px] font-semibold leading-6 text-black">행사 링크로 시작하기</h2>
+        <h2 className="text-[20px] font-semibold leading-6 text-black">행사 검색 또는 링크로 시작하기</h2>
+        <p className="mt-1 text-sm text-[#6e6d79]">행사를 검색하거나 행사 링크를 입력해 보세요. 행사명이면 공고를 찾아 주고, 링크면 그 페이지에서 정보를 읽어요.</p>
         <input
           className={`${fieldCls} mt-5`}
-          placeholder="행사 링크 붙여넣기"
+          placeholder="행사명 검색 또는 행사 링크 붙여넣기 (예: 서울일러스트레이션페어)"
           aria-label="행사 링크 또는 행사명"
           value={link}
           disabled={busy}

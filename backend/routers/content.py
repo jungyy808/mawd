@@ -62,7 +62,10 @@ async def create_content(
             raise HTTPException(404, {"code": "event_not_found", "message": "행사를 찾을 수 없어요"})
         names = ", ".join(f"{p['name']}({p['price']:,}원)" for p in db.get_event_products(event_id)[:6])
         when = " ~ ".join(x for x in (ev.get("start_date"), ev.get("end_date")) if x)
+        from datetime import date as _date
+        ended = ev.get("status") == "done" or bool(ev.get("end_date") and ev["end_date"][:10] < _date.today().isoformat())
         description = (f"[행사] {ev['name']} · {when or '날짜 미정'} · {ev.get('location') or '장소 미정'}"
+                       + (" · 이미 끝난 행사 (방문 감사·후기·온라인 스토어 안내 톤으로, 방문을 권유하지 말 것)" if ended else "")
                        + (f" · 운영 {ev['hours']}" if ev.get("hours") else "")
                        + (f"\n[판매 상품] {names}" if names else "") + f"\n[요구사항] {description}")
     image_bytes = None

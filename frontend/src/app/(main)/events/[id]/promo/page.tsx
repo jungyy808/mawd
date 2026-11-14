@@ -4,7 +4,7 @@ import Link from "next/link";
 import DraftCard from "@/components/ads/DraftCard";
 import NaverConnect from "@/components/ads/NaverConnect";
 import Generated from "@/components/ads/Generated";
-import { publicOrigin } from "@/components/events/api";
+import { phaseOf, publicOrigin } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { Card, CopyButton } from "@/components/events/ui";
 
@@ -28,7 +28,14 @@ export default function PromoPage() {
         <LinkCard href="/ads/demo?p=meta" title="메타 광고 데모" desc="인스타그램 광고 미리보기" />
         <LinkCard href="/ads/demo?p=daangn" title="당근 광고 데모" desc="동네 광고 미리보기" />
       </div>
-      <DraftCard eventId={ev.id} />
+      {phaseOf(ev) === "종료" ? (
+        <Card title="네이버 파워링크 광고">
+          <p className="text-sm text-neutral-600">끝난 행사라 새 광고는 신청하지 않아요. 이미 만든 광고 문구와 게시물은 아래 ‘생성한 항목’에서 볼 수 있어요.</p>
+          <p className="mt-1 text-sm text-neutral-600">다음 행사를 등록하면 그 행사로 광고를 만들 수 있어요.</p>
+        </Card>
+      ) : (
+        <DraftCard eventId={ev.id} />
+      )}
       <Generated eventId={ev.id} />
       <Card title="광고·콘텐츠 연결 URL">
         <p className="text-sm text-neutral-600">광고와 블로그·인스타 링크는 이 행사의 방문객 안내 페이지로 연결하세요. 공개 설정은 고객 탭에서 할 수 있어요.</p>
