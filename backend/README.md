@@ -19,14 +19,23 @@ LLM 키가 없거나 호출이 실패해도 `/api/content`는 예시 응답(`is_
 
 | API | 설명 |
 |---|---|
-| `POST /api/stores` | 가입. JSON `{name, category, region, tone, monthly_budget}` → `{store_id, store}` |
-| `GET /api/stores/me` | 내 가게 정보. 헤더 `X-Store-Id` |
-| `POST /api/content` | multipart `description`, `image`(선택) + 헤더 `X-Store-Id` → `{instagram, blog, image_url, is_fallback}` |
+| `POST /api/stores` | 가입 = 브랜드 등록. JSON `{name, category, intro?, tone?, target_customer?, sales_channel?, region?, monthly_budget?}` → `{store_id, store}` |
+| `GET /api/stores/me` | 내 브랜드 정보. 헤더 `X-Store-Id` |
+| `PATCH /api/stores/me` | 브랜드 프로필 수정 (보낸 필드만) |
+| `POST /api/content` | multipart `description`, `channel`(all/blog/instagram), `goal_keyword`, `image`(선택) + 헤더 `X-Store-Id` → `{instagram{caption,hashtags,shot_list}, blog{title,body,tags,cta}, image_url, is_fallback}` |
 | `GET /uploads/{파일}` | 업로드 이미지 공개 URL |
 
-`tone`: `friendly` / `clean` / `playful`
-
 에러 형식: `{"error": {"code": "...", "message": "..."}}`
+
+## LLM 설정 (.env)
+
+Liner (현재 사용):
+```
+LLM_PROVIDER=openai
+OPENAI_API_KEY=Liner키
+OPENAI_MODEL=liner-gpt-router
+OPENAI_BASE_URL=https://platform.liner.com/api/v1
+```
 
 ## Render 배포
 
@@ -42,7 +51,7 @@ LLM 키가 없거나 호출이 실패해도 `/api/content`는 예시 응답(`is_
 ```bash
 # 가입
 curl -X POST localhost:8000/api/stores -H "Content-Type: application/json" \
-  -d '{"name":"달빛베이커리","category":"베이커리","region":"경기 안산시 상록구","tone":"friendly","monthly_budget":300000}'
+  -d '{"name":"소소공방","category":"문구·굿즈","intro":"일상 기록용 문구","tone":"차분하고 다정하게"}'
 
 # 콘텐츠 생성 (store_id 바꿔서)
 curl -X POST localhost:8000/api/content -H "X-Store-Id: st_xxxxxx" \

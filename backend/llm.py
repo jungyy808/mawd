@@ -42,6 +42,49 @@ def generate_json(system: str, user: str, image_bytes: bytes | None = None) -> d
     return _anthropic(system, user, image_bytes)
 
 
+def _gemini(system: str, user: str, image_bytes: bytes | None) -> dict:
+    """Google Gemini REST (무료 키 가능, 이미지 입력 지원)."""
+    if not config.GEMINI_API_KEY:
+        raise LLMError("GEMINI_API_KEY 없음")
+    import urllib.error
+    import urllib.request
+
+    parts: list[dict] = []
+    if image_bytes:
+        b64, media_type = _prepare_image(image_bytes)
+        parts.append({"inline_data": {"mime_type": media_type, "data": b64}})
+    parts.append({"text": user})
+    payload = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.8, "thinkingConfig": {"thinkingLevel": "low"}},
+    }
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{config.GEMINI_MODEL.strip()}:generateContent"
+    )
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": config.GEMINI_API_KEY.strip(),
+            "User-Agent": "Mozilla/5.0 (mawd-backend)",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            data = json.loads(resp.read().decode())
+        cand_parts = data["candidates"][0]["content"]["parts"]
+        return _parse_json("".join(p.get("text", "") for p in cand_parts))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="ignore")[:500]
+        raise LLMError(f"HTTP {e.code}: {body}") from e
+    except Exception as e:  # noqa: BLE001
+        raise LLMError(str(e)) from e
+
+
 def _vapi(system: str, user: str) -> dict:
     """Vapi /chat (텍스트 전용, 이미지는 무시). 대시보드에서 만든 assistant 사용."""
     if not config.VAPI_API_KEY or not config.VAPI_ASSISTANT_ID:
@@ -68,7 +111,7 @@ def _vapi(system: str, user: str) -> dict:
     import urllib.error
 
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=90) as resp:
             data = json.loads(resp.read().decode())
         texts = [m.get("content", "") for m in data.get("output", []) if m.get("role") == "assistant"]
         return _parse_json("".join(t for t in texts if isinstance(t, str)))
@@ -120,46 +163,5 @@ def _openai(system: str, user: str, image_bytes: bytes | None) -> dict:
             **({} if config.OPENAI_BASE_URL else {"response_format": {"type": "json_object"}}),
         )
         return _parse_json(resp.choices[0].message.content or "")
-    except Exception as e:  # noqa: BLE001
-        raise LLMError(str(e)) from e
-
-
-def _gemini(system: str, user: str, image_bytes: bytes | None) -> dict:
-    """Google Gemini REST (무료 키, 이미지 입력 지원)."""
-    if not config.GEMINI_API_KEY:
-        raise LLMError("GEMINI_API_KEY 없음")
-    import urllib.error
-    import urllib.request
-
-    parts: list[dict] = []
-    if image_bytes:
-        b64, media_type = _prepare_image(image_bytes)
-        parts.append({"inline_data": {"mime_type": media_type, "data": b64}})
-    parts.append({"text": user})
-    payload = {
-        "system_instruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.8},
-    }
-    url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-           f"{config.GEMINI_MODEL.strip()}:generateContent")
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode(),
-        headers={
-            "Content-Type": "application/json",
-            "x-goog-api-key": config.GEMINI_API_KEY.strip(),
-            "User-Agent": "Mozilla/5.0 (mawd-backend)",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read().decode())
-        cand_parts = data["candidates"][0]["content"]["parts"]
-        return _parse_json("".join(p.get("text", "") for p in cand_parts))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode(errors="ignore")[:500]
-        raise LLMError(f"HTTP {e.code}: {body}") from e
     except Exception as e:  # noqa: BLE001
         raise LLMError(str(e)) from e

@@ -13,6 +13,9 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "")  # openai 쓸 때 모델명 직접 지정
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")  # Liner: https://platform.liner.com/api/v1
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 VAPI_API_KEY = os.getenv("VAPI_API_KEY", "")  # Private API Key
 VAPI_ASSISTANT_ID = os.getenv("VAPI_ASSISTANT_ID", "")
 
@@ -21,6 +24,3 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 LLM_IMAGE_MAX_SIDE = 1568
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
