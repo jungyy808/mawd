@@ -21,15 +21,24 @@ export default function MyEventsPage() {
   const [budgets, setBudgets] = useState<Record<string, BudgetOut>>({});
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체");
   const [error, setError] = useState("");
+  const [seeding, setSeeding] = useState(false);
 
+  const show = (evs: EventOut[]) => {
+    setEvents(evs);
+    evs.forEach((e) => api<BudgetOut>(`/api/events/${e.id}/budget`).then((b) => setBudgets((m) => ({ ...m, [e.id]: b }))).catch(() => {}));
+  };
   const load = () => {
     setError("");
-    api<EventOut[]>("/api/events")
-      .then((evs) => {
-        setEvents(evs);
-        evs.forEach((e) => api<BudgetOut>(`/api/events/${e.id}/budget`).then((b) => setBudgets((m) => ({ ...m, [e.id]: b }))).catch(() => {}));
-      })
-      .catch((e) => setError(e.message));
+    api<EventOut[]>("/api/events").then(show).catch((e) => setError(e.message));
+  };
+  // 서버가 예시 행사 3개(준비 중·운영 중·종료)를 저장하고 전체 목록을 돌려준다.
+  const loadSample = () => {
+    setSeeding(true);
+    setError("");
+    api<EventOut[]>("/api/events/sample", { method: "POST" })
+      .then(show)
+      .catch((e) => setError(e.message))
+      .finally(() => setSeeding(false));
   };
   useEffect(load, []);
 
@@ -60,7 +69,16 @@ export default function MyEventsPage() {
 
       {error && <ErrorBox message={error} onRetry={load} />}
       {!events && !error && <Spinner text="행사를 불러오는 중" />}
-      {events && shown.length === 0 && <Empty>{events.length ? "이 단계의 행사가 없어요." : "아직 등록된 행사가 없어요. 행사 생성으로 시작하세요."}</Empty>}
+      {events && shown.length === 0 && (
+        <Empty>
+          {events.length ? "이 단계의 행사가 없어요." : "아직 등록된 행사가 없어요. 행사 생성으로 시작하세요."}
+          {events.length === 0 && (
+            <button onClick={loadSample} disabled={seeding} className="mx-auto mt-4 block rounded-lg border border-[#6d53f1] px-4 py-2 text-sm font-semibold text-[#6d53f1] hover:bg-[#6d53f1]/10 disabled:opacity-40">
+              {seeding ? "불러오는 중…" : "예시 행사로 둘러보기"}
+            </button>
+          )}
+        </Empty>
+      )}
 
       <div className="space-y-5">
         {shown.map((e) => {

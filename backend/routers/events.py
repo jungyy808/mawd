@@ -178,6 +178,48 @@ def import_event(body: EventImportIn, store: dict = Depends(current_store)):
     return EventImportOut(status=status, message=msg, fields=fields, draft=draft, sources=sources)
 
 
+# ---------- 예시 행사 (내 행사 화면 더미 데이터) ----------
+# 날짜는 오늘 기준으로 계산해서 언제 눌러도 준비 중(D-15)·운영 중·종료가 하나씩 보인다.
+# 실제 행사로 저장되므로 바로가기·체크리스트·예산 화면이 그대로 동작한다.
+
+def _sample_events(today: date) -> list[tuple[dict, list[dict]]]:
+    def d(n: int) -> str:
+        return (today + timedelta(days=n)).isoformat()
+
+    base = EventIn(name="-").model_dump()
+    return [
+        ({**base, "name": "서울 일러스트 페어", "type": "booth", "start_date": d(15), "end_date": d(16),
+          "location": "서울 코엑스 홀 C", "hours": "10:00–18:00", "load_in_time": "08:00–09:30",
+          "booth_size": "2m × 2m", "expected_visitors": 300, "status": "preparing"},
+         [{"title": "굿즈 최종 수량 확정", "d_minus": 14, "category": "상품", "status": "done"},
+          {"title": "키링·스티커 발주", "d_minus": 12, "category": "제작", "status": "done"},
+          {"title": "부스 가격표 제작", "d_minus": 7, "category": "운영", "status": "doing"},
+          {"title": "참가 소식 인스타 게시", "d_minus": 5, "category": "홍보"},
+          {"title": "현장 결제수단 준비", "d_minus": 1, "category": "운영"}]),
+        ({**base, "name": "연남 겨울 팝업", "type": "popup", "start_date": d(-1), "end_date": d(1),
+          "location": "서울 마포구 연남동", "hours": "11:00–19:00", "expected_visitors": 200, "status": "preparing"},
+         [{"title": "포장재 준비", "d_minus": 3, "category": "운영", "status": "done"},
+          {"title": "팝업 오픈 안내 게시", "d_minus": 1, "category": "홍보", "status": "done"},
+          {"title": "마감 후 재고 확인", "d_minus": 0, "category": "운영"}]),
+        ({**base, "name": "성수 핸드메이드 마켓", "type": "market", "start_date": d(-21), "end_date": d(-20),
+          "location": "서울 성동구 성수동", "hours": "12:00–18:00", "expected_visitors": 150, "status": "done"},
+         [{"title": "부스 설치", "d_minus": 0, "category": "운영", "status": "done"},
+          {"title": "방문 감사 글 게시", "d_minus": 0, "category": "홍보", "status": "done"}]),
+    ]
+
+
+@router.post("/sample", response_model=list[EventOut],
+             summary="예시 행사 3개 넣기 (준비 중·운영 중·종료). 같은 이름이 있으면 건너뜀 → 전체 목록 반환")
+def add_sample_events(store: dict = Depends(current_store)):
+    existing = {e["name"] for e in db.list_events(store["id"])}
+    for data, checklist in _sample_events(datetime.now(KST).date()):
+        if data["name"] in existing:
+            continue
+        eid = db.create_event(store["id"], data)
+        db.add_checklist_items(eid, checklist)
+    return [_out(e) for e in db.list_events(store["id"])]
+
+
 # ---------- 행사 CRUD ----------
 
 @router.get("", response_model=list[EventOut], summary="행사 목록 (시작일 순)")
