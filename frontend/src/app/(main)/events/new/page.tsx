@@ -20,7 +20,7 @@ const EMPTY: EventIn = {
 };
 
 const fieldCls =
-  "h-[59px] w-full rounded-[9px] bg-[#d9d9d9] px-[18px] text-[20px] text-black placeholder:font-medium placeholder:text-[#6e6d79] focus:outline-none focus:ring-2 focus:ring-[#6d53f1]";
+  "h-12 w-full rounded-[9px] bg-[#d9d9d9] px-4 text-[20px] text-black placeholder:font-medium placeholder:text-[#6e6d79] focus:outline-none focus:ring-2 focus:ring-[#6d53f1]";
 const halfCls = `${fieldCls} min-w-0 flex-1 sm:w-[228px] sm:flex-none`;
 const primaryBtn =
   "inline-flex h-11 shrink-0 items-center justify-center gap-[10px] whitespace-nowrap rounded-[7px] bg-[#6d53f1] text-base font-semibold text-white transition hover:bg-[#5b42e0] disabled:cursor-not-allowed disabled:opacity-40";
