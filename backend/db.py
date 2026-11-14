@@ -243,6 +243,10 @@ def init_db() -> None:
             )
             """
         )
+        store_cols = {r[1] for r in conn.execute("PRAGMA table_info(stores)")}
+        for col in ("email", "password_hash"):
+            if col not in store_cols:
+                conn.execute(f"ALTER TABLE stores ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
         sale_cols = {r[1] for r in conn.execute("PRAGMA table_info(event_sale_items)")}
         if "cost" not in sale_cols:
             conn.execute("ALTER TABLE event_sale_items ADD COLUMN cost INTEGER NOT NULL DEFAULT 0")
@@ -732,3 +736,32 @@ def add_content(event_id: str, data: dict) -> str:
 def delete_content(event_id: str, content_id: str) -> None:
     with get_conn() as conn:
         conn.execute("DELETE FROM event_contents WHERE id = ? AND event_id = ?", (content_id, event_id))
+
+
+# ---------- 로그인 (운영자 계정 = 브랜드) ----------
+
+def _hash_pw(password: str, salt: str | None = None) -> str:
+    import hashlib
+    salt = salt or secrets.token_hex(8)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100_000).hex()
+    return f"{salt}${digest}"
+
+
+def set_login(store_id: str, email: str, password: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE stores SET email = ?, password_hash = ? WHERE id = ?", (email.strip().lower(), _hash_pw(password), store_id))
+
+
+def email_taken(email: str) -> bool:
+    with get_conn() as conn:
+        return conn.execute("SELECT 1 FROM stores WHERE email = ?", (email.strip().lower(),)).fetchone() is not None
+
+
+def check_login(email: str, password: str) -> dict | None:
+    import hmac
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM stores WHERE email = ? AND email != ''", (email.strip().lower(),)).fetchone()
+    if not row or not row["password_hash"]:
+        return None
+    salt = row["password_hash"].split("$", 1)[0]
+    return dict(row) if hmac.compare_digest(_hash_pw(password, salt), row["password_hash"]) else None

@@ -32,9 +32,28 @@ class StoreUpdate(BaseModel):
     monthly_budget: int | None = Field(None, ge=0)
 
 
+class StoreCreate(StoreIn):
+    email: str = Field("", description="로그인 이메일 (선택 · 넣으면 비밀번호도 필요)", examples=["owner@example.com"])
+    password: str = Field("", description="비밀번호 8자 이상")
+
+
+class LoginIn(BaseModel):
+    email: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=1)
+
+
 class StoreOut(BaseModel):
     store_id: str
     store: StoreIn
+    email: str = ""
+
+
+class Integration(BaseModel):
+    key: str
+    name: str
+    status: str = Field(..., description="ready(사용 가능) / not_connected(연결 전) / error")
+    status_label: str
+    check: str
 
 
 Channel = Literal["all", "blog", "instagram"]

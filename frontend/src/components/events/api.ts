@@ -39,7 +39,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
       const err = data?.error ?? {};
       if (err.code === "store_not_found" || err.code === "store_id_missing") {
         window.localStorage.removeItem(STORE_KEY);
-        window.location.href = "/onboarding";
+        window.location.href = "/login";
       }
       throw new ApiError(res.status, err.code ?? "http_error", err.message ?? `요청 실패 (${res.status})`);
     }

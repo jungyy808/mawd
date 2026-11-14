@@ -7,7 +7,7 @@ import { Button, ErrorBox, Field, inputCls } from "@/components/events/ui";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", category: "", intro: "", region: "" });
+  const [form, setForm] = useState({ name: "", category: "", intro: "", region: "", email: "", password: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,11 +47,20 @@ export default function OnboardingPage() {
           <Field label="주 활동 지역">
             <input className={inputCls} placeholder="예: 서울 마포구" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
           </Field>
+          <Field label="로그인 이메일" required>
+            <input type="email" autoComplete="email" className={inputCls} placeholder="owner@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </Field>
+          <Field label="비밀번호" required hint="8자 이상">
+            <input type="password" autoComplete="new-password" className={inputCls} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          </Field>
           {error && <ErrorBox message={error} />}
-          <Button onClick={submit} disabled={busy || !form.name.trim() || !form.category.trim()} className="h-11 w-full">
+          <Button onClick={submit} disabled={busy || !form.name.trim() || !form.category.trim() || !form.email.trim() || form.password.length < 8} className="h-11 w-full">
             {busy ? "등록 중…" : "시작하기"}
           </Button>
         </div>
+        <p className="mt-5 text-center text-sm text-neutral-500">
+          이미 계정이 있어요? <a href="/login" className="font-semibold text-[#6d53f1] hover:underline">로그인</a>
+        </p>
       </div>
     </main>
   );
