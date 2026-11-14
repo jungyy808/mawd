@@ -21,6 +21,17 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
         "country_code": "kr",
         "lang": "ko",
     }
+    try:
+        return _call(payload, key)
+    except LinerError as e:
+        if "HTTP 400" in str(e) or "HTTP 422" in str(e):
+            payload.pop("country_code", None)
+            payload.pop("lang", None)
+            return _call(payload, key)
+        raise
+
+
+def _call(payload: dict, key: str) -> list[dict]:
     req = urllib.request.Request(
         "https://platform.liner.com/api/v1/tools/search/web",
         data=json.dumps(payload).encode(),
