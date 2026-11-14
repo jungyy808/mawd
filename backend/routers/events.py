@@ -16,6 +16,7 @@ from schemas import (
     ChecklistItemUpdate,
     ChecklistOut,
     ChecklistSuggestIn,
+    EventCreateIn,
     EventImportIn,
     ImportCandidate,
     ImportSearchOut,
@@ -279,8 +280,21 @@ def list_events(store: dict = Depends(current_store)):
 
 
 @router.post("", response_model=EventOut, summary="행사 생성 (직접 입력 또는 import의 draft)")
-def create_event(body: EventIn, store: dict = Depends(current_store)):
-    eid = db.create_event(store["id"], body.model_dump())
+def create_event(body: EventCreateIn, store: dict = Depends(current_store)):
+    # 1) 같은 저장 재요청(더블클릭·재시도)이면 이미 만든 행사를 그대로 돌려준다
+    if body.request_id:
+        prev = db.find_event_by_request(store["id"], body.request_id)
+        if prev:
+            return _out(prev)
+    # 2) 같은 이름·같은 시작일 행사가 이미 있으면 물어본다
+    if not body.allow_duplicate:
+        same = db.find_same_event(store["id"], body.name, body.start_date)
+        if same:
+            raise HTTPException(409, {"code": "duplicate_event",
+                                      "message": f"같은 이름·날짜의 행사가 이미 있어요: {same['name']} ({same['id']})"})
+    eid = db.create_event(store["id"], body.model_dump(exclude={"request_id", "allow_duplicate"}))
+    if body.request_id:
+        db.set_event_request(store["id"], eid, body.request_id)
     return _out(db.get_event(store["id"], eid))
 
 

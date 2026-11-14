@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { api, type EventOut } from "@/components/events/api";
+import { api, fmtRange, type EventOut } from "@/components/events/api";
 // Figma에서 받은 아이콘 원본 (src/assets/nav). import하면 { src, width, height }가 들어온다.
 import homeIcon from "@/assets/nav/home.svg";
 import eventsIcon from "@/assets/nav/events.svg";
@@ -151,7 +151,7 @@ function EventSwitcher({ events, current, onChoose }: { events: EventOut[] | nul
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        title="행사 선택"
+        title={current.name}
         className="flex w-full items-center gap-2 rounded-[7px] bg-[#6d53f1]/10 py-[12px] pr-[13px] pl-[18px] text-left hover:bg-[#6d53f1]/15"
       >
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-black">{current.name}</span>
@@ -162,13 +162,17 @@ function EventSwitcher({ events, current, onChoose }: { events: EventOut[] | nul
       </button>
       {open && (
         <ul role="listbox" className="absolute top-full right-0 left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-[7px] border border-neutral-200 bg-white py-1 shadow-lg">
-          <li role="option" aria-selected="true" className="flex items-center gap-2 px-4 py-2.5 font-semibold text-[#6d53f1]">
-            <span className="min-w-0 flex-1 truncate">{current.name}</span>✓
+          <li role="option" aria-selected="true" title={current.name} className="flex items-center gap-2 px-4 py-2.5 text-[#6d53f1]">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold">{current.name}</span>
+              <span className="block text-xs text-[#6d53f1]/70">{fmtRange(current.start_date, current.end_date) || "날짜 미정"}</span>
+            </span>✓
           </li>
           {others.map((e) => (
             <li key={e.id} role="option" aria-selected="false">
-              <button type="button" onClick={() => { onChoose(e.id); setOpen(false); }} className="block w-full truncate px-4 py-2.5 text-left font-medium text-[#55545e] hover:bg-[#6d53f1]/10 hover:text-black">
-                {e.name}
+              <button type="button" title={e.name} onClick={() => { onChoose(e.id); setOpen(false); }} className="block w-full px-4 py-2.5 text-left text-[#55545e] hover:bg-[#6d53f1]/10 hover:text-black">
+                <span className="block truncate font-medium">{e.name}</span>
+                <span className="block text-xs text-neutral-400">{fmtRange(e.start_date, e.end_date) || "날짜 미정"}{e.location ? ` · ${e.location}` : ""}</span>
               </button>
             </li>
           ))}

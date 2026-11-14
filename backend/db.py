@@ -22,6 +22,7 @@ _EVENT_EXTRA_COLUMNS = {
     "subscribe_url": "TEXT NOT NULL DEFAULT ''",
     "chat_plugin_key": "TEXT NOT NULL DEFAULT ''",
     "notice": "TEXT NOT NULL DEFAULT ''",
+    "request_id": "TEXT NOT NULL DEFAULT ''",  # 같은 저장 재요청으로 중복 생성 방지
 }
 
 # 행사 예산·목표 이익 (Figma: 예산·손익)
@@ -667,3 +668,22 @@ def received_qty_by_product(event_id: str) -> dict[str, int]:
         rows = conn.execute("SELECT product_id, SUM(received_qty) q FROM purchase_orders WHERE event_id = ? AND status = 'received' GROUP BY product_id",
                             (event_id,)).fetchall()
     return {r["product_id"]: r["q"] for r in rows}
+
+
+def find_event_by_request(store_id: str, request_id: str) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM events WHERE store_id = ? AND request_id = ?", (store_id, request_id)).fetchone()
+    return dict(row) if row else None
+
+
+def find_same_event(store_id: str, name: str, start_date: str | None) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM events WHERE store_id = ? AND TRIM(name) = TRIM(?) AND COALESCE(start_date,'') = COALESCE(?, '')",
+            (store_id, name, start_date)).fetchone()
+    return dict(row) if row else None
+
+
+def set_event_request(store_id: str, event_id: str, request_id: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE events SET request_id = ? WHERE id = ? AND store_id = ?", (request_id, event_id, store_id))
