@@ -543,3 +543,31 @@ class ReportOut(BaseModel):
     gap_qty: int | None = Field(description="목표 대비 차이 (목표 − 판매)")
     by_payment: dict[str, int]
     basis: str
+
+
+# ---------- 네이버 파워링크 등록 (Figma: 12 파워링크 등록 승인) ----------
+
+class NaverRegisterIn(BaseModel):
+    campaign_name: str = Field(..., min_length=1)
+    adgroup_name: str = Field("기본 그룹")
+    keywords: list[DraftKeyword] = Field(default_factory=list)
+    title: str = Field("", description="제목 15자 이내")
+    description: str = Field("", description="설명 45자 이내")
+    daily_budget: int = Field(10000, ge=0)
+    landing_url: str = ""
+
+
+class RegisterStep(BaseModel):
+    step: str
+    ok: bool
+    message: str = ""
+    id: str = ""
+
+
+class NaverRegisterOut(BaseModel):
+    status: Literal["ok", "partial", "failed"]
+    is_sample: bool = Field(description="네이버 키가 없어 실제로 등록하지 않음")
+    campaign_id: str = ""
+    steps: list[RegisterStep]
+    manage_url: str = "https://manage.searchad.naver.com"
+    message: str

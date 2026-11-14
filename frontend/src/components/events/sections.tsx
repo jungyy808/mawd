@@ -2,7 +2,7 @@
 // 행사 상세 탭에서 같이 쓰는 카드들 (판매 계획, 체크리스트, 재고 계획, 방문객 안내)
 import { useCallback, useEffect, useState } from "react";
 import {
-  type CheckStatus, type ChecklistOut, type EventOut, type PlanOut, api, pct, won,
+  type CheckStatus, type ChecklistOut, type EventOut, type PlanOut, api, pct, publicOrigin, won,
 } from "@/components/events/api";
 import { Badge, Button, Card, Empty, ErrorBox, Spinner, inputCls } from "@/components/events/ui";
 
@@ -203,7 +203,7 @@ export function VisitorPage({ ev, patch }: { ev: EventOut; patch: (b: Partial<Ev
   const [form, setForm] = useState({ subscribe_url: ev.subscribe_url, chat_plugin_key: ev.chat_plugin_key, notice: ev.notice });
   const [saved, setSaved] = useState(false);
   const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => setOrigin(publicOrigin()), []);
   const url = `${origin}/e/${ev.id}`;
 
   const save = async () => {

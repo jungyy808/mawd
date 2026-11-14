@@ -51,6 +51,35 @@ def get_json(path: str, customer_id: str, params: dict | None = None):
         raise NaverError(str(e)) from e
 
 
+def send_json(method: str, path: str, customer_id: str, body=None, params: dict | None = None):
+    """POST/PUT 요청 (캠페인·광고그룹·키워드·소재 생성)."""
+    if not enabled():
+        raise NaverError("네이버 API 키 없음")
+    url = BASE + path + ("?" + urllib.parse.urlencode(params) if params else "")
+    data = json.dumps(body, ensure_ascii=False).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, headers=_headers(method, path, customer_id), method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode()
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="ignore")[:400]
+        try:
+            j = json.loads(detail)
+            detail = j.get("title") or j.get("message") or detail
+            if j.get("detail"):
+                detail = f"{detail} ({j['detail']})"
+        except ValueError:
+            pass
+        raise NaverError(f"HTTP {e.code}: {detail}", e.code) from e
+    except Exception as e:  # noqa: BLE001
+        raise NaverError(str(e)) from e
+
+
+def list_channels(customer_id: str) -> list[dict]:
+    return get_json("/ncc/channels", customer_id) or []
+
+
 def list_campaigns(customer_id: str) -> list[dict]:
     return get_json("/ncc/campaigns", customer_id) or []
 

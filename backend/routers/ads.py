@@ -11,6 +11,7 @@ import naver
 from deps import current_store
 from prompts import NAVER_DRAFT_SYSTEM, naver_draft_user_prompt
 from schemas import (
+    NaverRegisterIn, NaverRegisterOut, RegisterStep,
     AdCampaign,
     AdChannel,
     AdSummary,
@@ -205,6 +206,99 @@ def naver_draft(body: NaverDraftIn, store: dict = Depends(current_store)):
                          description=desc, region_suggestion=region, daily_budget=body.daily_budget,
                          start_date=start, end_date=end, landing_url=body.landing_url, warnings=warnings,
                          is_fallback=is_fallback)
+
+
+# ---------- 파워링크 등록 (중지 상태) ----------
+
+@router.post("/naver/register", response_model=NaverRegisterOut,
+             summary="AI 초안을 네이버에 '중지 상태'로 등록 (광고비 안 나감, 집행은 네이버 광고 관리자에서 직접)")
+def naver_register(body: NaverRegisterIn, store: dict = Depends(current_store)):
+    conn = db.get_ad_connection(store["id"], "naver")
+    live = naver.enabled() and conn and conn["status"] == "connected"
+    stamp = datetime.now(timezone(timedelta(hours=9))).strftime("%m%d-%H%M")
+    camp_name = _clip(f"{body.campaign_name} ({stamp})", 30)
+    title, desc = _clip(body.title or body.campaign_name, 15), _clip(body.description or store["name"], 45)
+    keywords = [k for k in body.keywords if k.keyword.strip()][:20]
+
+    if not live:
+        # 키·연결이 없으면 실제 호출 없이 등록 순서만 보여준다 (시연용)
+        steps = [RegisterStep(step=s, ok=True, message="샘플 · 실제로 등록하지 않았어요") for s in
+                 ("캠페인 생성 (중지)", "비즈채널 확인", "광고그룹 생성 (중지)", f"키워드 {len(keywords)}개 등록", "광고 문구 등록")]
+        return NaverRegisterOut(status="ok", is_sample=True, steps=steps,
+                                message="네이버 계정이 연결되지 않아 샘플로 보여드렸어요. 계정을 연결하면 실제로 중지 상태로 등록돼요.")
+
+    cid = conn["customer_id"]
+    steps: list[RegisterStep] = []
+
+    def fail(step: str, e: Exception, campaign_id: str = "") -> NaverRegisterOut:
+        log.warning("파워링크 등록 실패 (%s): %s", step, e)
+        steps.append(RegisterStep(step=step, ok=False, message=str(e)))
+        return NaverRegisterOut(status="partial" if campaign_id else "failed", is_sample=False, campaign_id=campaign_id,
+                                steps=steps, message=f"'{step}' 단계에서 멈췄어요. 이전 단계까지는 네이버에 등록됐어요."
+                                if campaign_id else "네이버에 등록하지 못했어요.")
+
+    # 1) 캠페인 (중지 상태: userLock=true)
+    try:
+        camp = naver.send_json("POST", "/ncc/campaigns", cid, {
+            "customerId": int(cid), "name": camp_name, "campaignTp": "WEB_SITE",
+            "dailyBudget": body.daily_budget, "useDailyBudget": body.daily_budget > 0, "userLock": True,
+        })
+        campaign_id = camp.get("nccCampaignId", "")
+        if not camp.get("userLock", True):
+            naver.send_json("PUT", f"/ncc/campaigns/{campaign_id}", cid,
+                            {"nccCampaignId": campaign_id, "userLock": True}, {"fields": "userLock"})
+        steps.append(RegisterStep(step="캠페인 생성 (중지)", ok=True, message=camp_name, id=campaign_id))
+    except naver.NaverError as e:
+        return fail("캠페인 생성 (중지)", e)
+
+    # 2) 비즈채널 (웹사이트) — 광고그룹에 꼭 필요
+    try:
+        chans = [c for c in naver.list_channels(cid) if c.get("channelTp") == "SITE"]
+        if not chans:
+            raise naver.NaverError("등록된 웹사이트 비즈채널이 없어요. 네이버 광고 관리자 > 정보 관리 > 비즈채널 관리에서 사이트를 추가하세요.")
+        chan = next((c for c in chans if str(c.get("inspectStatus", "")).upper() in ("APPROVED", "ELIGIBLE")), chans[0])
+        chan_id = chan.get("nccBusinessChannelId", "")
+        steps.append(RegisterStep(step="비즈채널 확인", ok=True, message=chan.get("name") or chan.get("channelKey", ""), id=chan_id))
+    except naver.NaverError as e:
+        return fail("비즈채널 확인", e, campaign_id)
+
+    # 3) 광고그룹 (중지)
+    try:
+        bid = max([k.bid for k in keywords] or [300])
+        grp = naver.send_json("POST", "/ncc/adgroups", cid, {
+            "nccCampaignId": campaign_id, "name": _clip(body.adgroup_name, 30), "adgroupType": "WEB_SITE",
+            "pcChannelId": chan_id, "mobileChannelId": chan_id, "bidAmt": bid,
+            "dailyBudget": body.daily_budget, "useDailyBudget": body.daily_budget > 0, "userLock": True,
+        })
+        group_id = grp.get("nccAdgroupId", "")
+        steps.append(RegisterStep(step="광고그룹 생성 (중지)", ok=True, message=body.adgroup_name, id=group_id))
+    except naver.NaverError as e:
+        return fail("광고그룹 생성 (중지)", e, campaign_id)
+
+    # 4) 키워드
+    try:
+        if keywords:
+            naver.send_json("POST", "/ncc/keywords", cid,
+                            [{"keyword": k.keyword, "bidAmt": k.bid, "useGroupBidAmt": False, "userLock": False} for k in keywords],
+                            {"nccAdgroupId": group_id})
+        steps.append(RegisterStep(step=f"키워드 {len(keywords)}개 등록", ok=True, message=", ".join(k.keyword for k in keywords[:5])))
+    except naver.NaverError as e:
+        return fail(f"키워드 {len(keywords)}개 등록", e, campaign_id)
+
+    # 5) 광고 문구 (텍스트 소재)
+    try:
+        if not body.landing_url:
+            raise naver.NaverError("연결 URL이 없어 광고 문구를 등록하지 않았어요.")
+        naver.send_json("POST", "/ncc/ads", cid, {
+            "type": "TEXT_45", "nccAdgroupId": group_id,
+            "ad": {"headline": title, "description": desc, "pc": {"final": body.landing_url}, "mobile": {"final": body.landing_url}},
+        })
+        steps.append(RegisterStep(step="광고 문구 등록", ok=True, message=f"{title} / {desc}"))
+    except naver.NaverError as e:
+        return fail("광고 문구 등록", e, campaign_id)
+
+    return NaverRegisterOut(status="ok", is_sample=False, campaign_id=campaign_id, steps=steps,
+                            message="네이버에 중지 상태로 등록했어요. 광고비는 나가지 않아요. 집행하려면 네이버 광고 관리자에서 직접 켜세요.")
 
 
 # ---------- 메타·당근 데모 ----------

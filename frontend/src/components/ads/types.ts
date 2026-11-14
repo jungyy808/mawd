@@ -16,3 +16,5 @@ export interface NaverDraft {
 }
 export interface DemoCampaign { platform: AdPlatform; name: string; channel: string; objective: string; daily_budget: number; creative: string; status_message: string; summary: AdSummary }
 export const STATUS_TEXT: Record<AdChannel["status"], string> = { connected: "연결됨", permission_needed: "권한 필요", disconnected: "연결 안 됨", preparing: "준비 중" };
+export interface RegisterStep { step: string; ok: boolean; message: string; id: string }
+export interface NaverRegisterOut { status: "ok" | "partial" | "failed"; is_sample: boolean; campaign_id: string; steps: RegisterStep[]; manage_url: string; message: string }

@@ -1,9 +1,9 @@
 "use client";
 // 네이버 파워링크 AI 캠페인 초안 (광고 화면 · 행사 홍보·광고 탭에서 같이 사용)
 import { useEffect, useState } from "react";
-import { type EventOut, api, won } from "@/components/events/api";
+import { type EventOut, api, publicOrigin, won } from "@/components/events/api";
 import { Badge, Button, Card, ErrorBox, Field, Spinner, inputCls } from "@/components/events/ui";
-import type { NaverDraft } from "./types";
+import type { NaverDraft, NaverRegisterOut } from "./types";
 
 export default function DraftCard({ eventId }: { eventId?: string }) {
   const [events, setEvents] = useState<EventOut[]>([]);
@@ -12,25 +12,47 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [approve, setApprove] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [reg, setReg] = useState<NaverRegisterOut | null>(null);
+
+  const register = async () => {
+    if (!draft) return;
+    setRegistering(true); setError("");
+    try {
+      setReg(await api<NaverRegisterOut>("/api/ads/naver/register", {
+        method: "POST",
+        json: {
+          campaign_name: draft.campaign_name, adgroup_name: draft.adgroup_name,
+          keywords: draft.keywords.map(({ keyword, bid }) => ({ keyword, bid })),
+          title: draft.title, description: draft.description, daily_budget: draft.daily_budget, landing_url: draft.landing_url,
+        },
+      }));
+      setApprove(false);
+    } catch (e) { setError((e as Error).message); }
+    finally { setRegistering(false); }
+  };
 
   useEffect(() => {
     api<EventOut[]>("/api/events").then((evs) => {
       setEvents(evs);
       const ev = eventId ? evs.find((e) => e.id === eventId) : undefined;
-      if (ev) setForm((f) => ({ ...f, event_id: ev.id, landing_url: `${window.location.origin}/e/${ev.id}`, product_name: ev.products[0]?.name ?? "" }));
+      if (ev) setForm((f) => ({ ...f, event_id: ev.id, landing_url: `${publicOrigin()}/e/${ev.id}`, product_name: ev.products[0]?.name ?? "" }));
     }).catch(() => {});
   }, [eventId]);
   const pickEvent = (id: string) => {
     const ev = events.find((e) => e.id === id);
     setForm((f) => ({
       ...f, event_id: id,
-      landing_url: id && typeof window !== "undefined" ? `${window.location.origin}/e/${id}` : f.landing_url,
+      landing_url: id ? `${publicOrigin()}/e/${id}` : f.landing_url,
       product_name: f.product_name || ev?.products[0]?.name || "",
     }));
   };
 
   const make = async () => {
     setBusy(true); setError("");
+    setReg(null); setApprove(false); setAgreed(false);
     try { setDraft(await api<NaverDraft>("/api/ads/naver/draft", { method: "POST", json: { ...form, event_id: form.event_id || null } })); }
     catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
@@ -66,6 +88,21 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
           </Field>
         </div>
       </div>
+      {(() => {
+        const sel = events.find((e) => e.id === form.event_id);
+        if (!sel || sel.is_public) return null;
+        return (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <span className="flex-1">이 행사의 방문객 안내 페이지가 아직 <b>공개 전</b>이에요. 광고를 눌러 들어온 사람에게 &quot;공개되지 않은 행사&quot;로 보여요.</span>
+            <Button variant="secondary" onClick={async () => {
+              try {
+                await api(`/api/events/${sel.id}`, { method: "PATCH", json: { is_public: true } });
+                setEvents((evs) => evs.map((e) => (e.id === sel.id ? { ...e, is_public: true } : e)));
+              } catch (e) { setError((e as Error).message); }
+            }}>안내 페이지 공개</Button>
+          </div>
+        );
+      })()}
       <Button className="mt-4" onClick={make} disabled={busy}>{busy ? "초안 만드는 중…" : draft ? "초안 다시 만들기" : "초안 만들기"}</Button>
       {error && <div className="mt-3"><ErrorBox message={error} /></div>}
 
@@ -100,10 +137,53 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
           </table>
           {draft.warnings.length > 0 && <ul className="space-y-1 text-xs text-amber-700">{draft.warnings.map((w) => <li key={w}>• {w}</li>)}</ul>}
           <div className="flex flex-wrap gap-2">
+            {!reg && <Button onClick={() => { setApprove(true); setAgreed(false); }} disabled={approve}>네이버에 중지 상태로 등록</Button>}
             <Button variant="secondary" onClick={copyText}>{copied ? "복사됨 ✓" : "초안 복사"}</Button>
-            <Button variant="secondary" href="https://searchad.naver.com">네이버 광고 관리자에서 등록 ↗</Button>
           </div>
-          <p className="text-xs text-neutral-500">MAWD는 광고를 직접 집행하지 않아요. 초안을 확인한 뒤 네이버 광고 관리자에서 등록하세요.</p>
+
+          {approve && !reg && (
+            <div className="rounded-lg border-2 border-[#6d53f1]/40 bg-[#6d53f1]/5 p-4 text-sm">
+              <p className="font-semibold">파워링크 등록 승인</p>
+              <ul className="mt-2 space-y-1 text-neutral-700">
+                <li>캠페인 · {draft.campaign_name}</li>
+                <li>광고그룹 · {draft.adgroup_name} · 키워드 {draft.keywords.length}개</li>
+                <li>일 예산 · {won(draft.daily_budget)}</li>
+                <li>연결 URL · <span className="break-all">{draft.landing_url || "없음 (광고 문구는 등록되지 않아요)"}</span></li>
+              </ul>
+              <label className="mt-3 flex items-start gap-2">
+                <input type="checkbox" className="mt-0.5 h-4 w-4" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                <span>네이버에 <b>중지 상태</b>로 등록되며 광고비는 나가지 않아요. 집행은 네이버 광고 관리자에서 제가 직접 켭니다.</span>
+              </label>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={register} disabled={!agreed || registering}>{registering ? "등록 중…" : "승인하고 등록"}</Button>
+                <Button variant="ghost" onClick={() => setApprove(false)}>취소</Button>
+              </div>
+            </div>
+          )}
+
+          {reg && (
+            <div className={`rounded-lg border p-4 text-sm ${reg.status === "ok" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+              <p className="font-semibold">
+                {reg.status === "ok" ? "등록 완료" : reg.status === "partial" ? "일부만 등록됐어요" : "등록하지 못했어요"}
+                {reg.is_sample && <Badge tone="amber">샘플</Badge>}
+              </p>
+              <ul className="mt-2 space-y-1">
+                {reg.steps.map((s) => (
+                  <li key={s.step} className="flex gap-2">
+                    <span className={s.ok ? "text-emerald-700" : "text-red-600"}>{s.ok ? "✓" : "✕"}</span>
+                    <span className="font-medium">{s.step}</span>
+                    {s.message && <span className="min-w-0 break-all text-neutral-600">· {s.message}</span>}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-neutral-700">{reg.message}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="secondary" href={reg.manage_url}>네이버 광고 관리자 열기 ↗</Button>
+                {reg.status !== "ok" && <Button variant="ghost" onClick={() => { setReg(null); setApprove(true); setAgreed(false); }}>다시 시도</Button>}
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-neutral-500">MAWD는 광고비를 쓰지 않아요. 등록은 항상 중지 상태이고, 집행은 네이버 광고 관리자에서 직접 켜야 해요.</p>
         </div>
       )}
     </Card>

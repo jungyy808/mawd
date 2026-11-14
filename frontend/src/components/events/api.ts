@@ -224,3 +224,12 @@ export interface ReportOut {
 }
 export const PAY_LABEL: Record<string, string> = { card: "카드", cash: "현금", transfer: "계좌이체" };
 export const signedWon = (n: number) => (n < 0 ? `−${won(-n)}` : won(n));
+
+// 방문객 안내 페이지·광고 연결 URL에 쓰는 공개 주소.
+// localhost에서 작업해도 광고·QR에는 배포 주소가 들어가게 한다 (NEXT_PUBLIC_SITE_URL로 바꿀 수 있음).
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://mawd-beta.vercel.app").replace(/\/$/, "");
+export function publicOrigin(): string {
+  if (typeof window === "undefined") return SITE_URL;
+  const o = window.location.origin;
+  return /localhost|127\.0\.0\.1|\[::1\]/.test(o) ? SITE_URL : o;
+}
