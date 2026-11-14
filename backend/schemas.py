@@ -69,6 +69,7 @@ class ProductIn(BaseModel):
     stock: int = Field(0, ge=0, description="현재고", examples=[30])
     url: str = Field("", description="상품 URL", examples=["https://smartstore.naver.com/..."])
     selling_point: str = Field("", description="소구점", examples=["가벼운 휴대성"])
+    cost: int = Field(0, ge=0, description="원가(원) · 손익 계산용", examples=[5000])
 
 
 class ProductUpdate(BaseModel):
@@ -78,6 +79,7 @@ class ProductUpdate(BaseModel):
     stock: int | None = Field(None, ge=0)
     url: str | None = None
     selling_point: str | None = None
+    cost: int | None = Field(None, ge=0)
 
 
 class ProductOut(ProductIn):
@@ -427,3 +429,116 @@ class HomeOut(BaseModel):
     todos: list[HomeTodo]
     cards: list[HomeCard]
     is_sample: bool = False
+
+
+# ---------- 예산·손익 (Figma: 39 예산·손익 / 40 예산·비용 입력) ----------
+
+class ExpenseIn(BaseModel):
+    category: str = Field("", description="분류", examples=["참가비"])
+    name: str = Field(..., min_length=1, description="지출 항목", examples=["부스 참가비"])
+    planned: int = Field(0, ge=0, description="예산(원)")
+    actual: int = Field(0, ge=0, description="실제 지출(원)")
+
+
+class ExpenseOut(ExpenseIn):
+    id: str
+
+
+class BudgetUpdate(BaseModel):
+    budget: int | None = Field(None, ge=0, description="행사 예산 총액(원)")
+    target_profit: int | None = Field(None, ge=0, description="목표 이익(원)")
+
+
+class BudgetProductIn(BaseModel):
+    product_id: str
+    prepared_qty: int | None = Field(None, ge=0, description="준비 수량")
+    price: int | None = Field(None, ge=0)
+    cost: int | None = Field(None, ge=0)
+
+
+class BudgetProduct(BaseModel):
+    product_id: str
+    name: str
+    price: int
+    cost: int
+    prepared_qty: int
+    unit_margin: int = Field(description="개당 이익 = 판매가 − 원가")
+    basis: str
+
+
+class BudgetOut(BaseModel):
+    budget: int
+    target_profit: int
+    expenses: list[ExpenseOut]
+    planned_total: int = Field(description="지출 예산 합계")
+    actual_total: int = Field(description="실제 지출 합계")
+    products: list[BudgetProduct]
+    prepared_total: int
+    expected_revenue: int
+    expected_cost: int = Field(description="준비 수량 기준 상품 원가")
+    avg_unit_margin: int
+    bep_budget: int | None = Field(description="예산 기준 손익분기 판매 수량")
+    bep_actual: int | None = Field(description="실제 지출 기준 손익분기 판매 수량")
+    target_qty: int | None = Field(description="목표 이익까지 필요한 판매 수량")
+    full_sale_profit: int = Field(description="준비 수량 전량 판매 시 예상 손익")
+    basis: str
+    warnings: list[str] = Field(default_factory=list)
+
+
+# ---------- 현장 판매 (Figma: 42 현장 판매 입력) ----------
+
+class SaleItemIn(BaseModel):
+    product_id: str
+    qty: int = Field(..., ge=1)
+
+
+class SaleIn(BaseModel):
+    payment_method: Literal["card", "cash", "transfer"] = "card"
+    items: list[SaleItemIn] = Field(..., min_length=1)
+
+
+class SaleItemOut(BaseModel):
+    product_id: str
+    name: str
+    qty: int
+    price: int
+
+
+class SaleOut(BaseModel):
+    id: str
+    payment_method: str
+    total: int
+    created_at: str
+    items: list[SaleItemOut]
+
+
+class StockRow(BaseModel):
+    product_id: str
+    name: str
+    price: int
+    prepared_qty: int
+    sold_qty: int
+    remaining: int
+
+
+class SalesOut(BaseModel):
+    sales: list[SaleOut]
+    stock: list[StockRow]
+    total_revenue: int
+    total_qty: int
+
+
+# ---------- 성과·리포트 (Figma: 44 행사 마감 리포트) ----------
+
+class ReportOut(BaseModel):
+    revenue: int
+    sold_qty: int
+    goods_cost: int = Field(description="판매된 상품 원가")
+    expenses: int = Field(description="실제 지출(없으면 예산)")
+    profit: int
+    remaining_qty: int
+    stock: list[StockRow]
+    target_qty: int | None
+    gap_qty: int | None = Field(description="목표 대비 차이 (목표 − 판매)")
+    by_payment: dict[str, int]
+    basis: str

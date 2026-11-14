@@ -24,6 +24,17 @@ _EVENT_EXTRA_COLUMNS = {
     "notice": "TEXT NOT NULL DEFAULT ''",
 }
 
+# 행사 예산·목표 이익 (Figma: 예산·손익)
+_EVENT_EXTRA_COLUMNS.update({
+    "budget": "INTEGER NOT NULL DEFAULT 0",
+    "target_profit": "INTEGER NOT NULL DEFAULT 0",
+})
+
+# 상품 원가 (Figma: 준비 수량과 원가 편집)
+_PRODUCT_EXTRA_COLUMNS = {
+    "cost": "INTEGER NOT NULL DEFAULT 0",
+}
+
 # 예전 DB에 없던 컬럼 자동 추가용
 _STORE_EXTRA_COLUMNS = {
     "intro": "TEXT NOT NULL DEFAULT ''",
@@ -163,6 +174,45 @@ def init_db() -> None:
             if col not in ev_existing:
                 conn.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
         existing = {row["name"] for row in conn.execute("PRAGMA table_info(stores)")}
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_expenses (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT '',
+                name TEXT NOT NULL,
+                planned INTEGER NOT NULL DEFAULT 0,
+                actual INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_sales (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                payment_method TEXT NOT NULL DEFAULT 'card',
+                total INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_sale_items (
+                sale_id TEXT NOT NULL,
+                event_id TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                qty INTEGER NOT NULL,
+                price INTEGER NOT NULL
+            )
+            """
+        )
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(products)")}
+        for col, ddl in _PRODUCT_EXTRA_COLUMNS.items():
+            if col not in cols:
+                conn.execute(f"ALTER TABLE products ADD COLUMN {col} {ddl}")
         for col, ddl in _STORE_EXTRA_COLUMNS.items():
             if col not in existing:
                 conn.execute(f"ALTER TABLE stores ADD COLUMN {col} {ddl}")
@@ -238,7 +288,7 @@ def _delete(table: str, store_id: str, item_id: str) -> None:
 
 # ---------- 상품 ----------
 
-PRODUCT_FIELDS = ("sku", "name", "price", "stock", "url", "selling_point")
+PRODUCT_FIELDS = ("sku", "name", "price", "stock", "url", "selling_point", "cost")
 
 
 def create_product(store_id: str, data: dict) -> str:
@@ -270,6 +320,7 @@ EVENT_FIELDS = (
     "load_in_time", "fee", "booth_size", "expected_visitors", "source_url", "status",
 )
 EVENT_PUBLIC_FIELDS = ("is_public", "subscribe_url", "chat_plugin_key", "notice")
+EVENT_MONEY_FIELDS = ("budget", "target_profit")
 
 
 def create_event(store_id: str, data: dict) -> str:
@@ -285,7 +336,7 @@ def list_events(store_id: str) -> list[dict]:
 
 
 def update_event(store_id: str, event_id: str, changes: dict) -> None:
-    _update("events", store_id, event_id, changes, EVENT_FIELDS + EVENT_PUBLIC_FIELDS)
+    _update("events", store_id, event_id, changes, EVENT_FIELDS + EVENT_PUBLIC_FIELDS + EVENT_MONEY_FIELDS)
 
 
 def get_event_public(event_id: str) -> dict | None:
@@ -298,7 +349,7 @@ def get_event_public(event_id: str) -> dict | None:
 def delete_event(store_id: str, event_id: str) -> None:
     _delete("events", store_id, event_id)
     with get_conn() as conn:
-        for table in ("event_products", "event_plans", "event_supplies", "checklist_items"):
+        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items"):
             conn.execute(f"DELETE FROM {table} WHERE event_id = ?", (event_id,))
 
 
@@ -443,3 +494,66 @@ def save_ad_connection(store_id: str, platform: str, customer_id: str, status: s
 def delete_ad_connection(store_id: str, platform: str) -> None:
     with get_conn() as conn:
         conn.execute("DELETE FROM ad_connections WHERE store_id = ? AND platform = ?", (store_id, platform))
+
+
+# ---------- 예산·지출 (Figma: 예산·손익) ----------
+
+def list_expenses(event_id: str) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM event_expenses WHERE event_id = ? ORDER BY created_at, rowid", (event_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_expenses(event_id: str, items: list[dict]) -> None:
+    now = _now()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM event_expenses WHERE event_id = ?", (event_id,))
+        conn.executemany(
+            "INSERT INTO event_expenses (id, event_id, category, name, planned, actual, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(f"ex_{secrets.token_hex(4)}", event_id, i.get("category", ""), i["name"], i.get("planned", 0), i.get("actual", 0), now) for i in items],
+        )
+
+
+def set_event_product_qty(event_id: str, product_id: str, qty: int) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE event_products SET planned_qty = ? WHERE event_id = ? AND product_id = ?", (qty, event_id, product_id))
+
+
+# ---------- 현장 판매 (Figma: 현장 판매 입력 → 재고 반영) ----------
+
+def add_sale(event_id: str, payment_method: str, items: list[dict]) -> str:
+    sale_id = f"sl_{secrets.token_hex(4)}"
+    total = sum(i["qty"] * i["price"] for i in items)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO event_sales (id, event_id, payment_method, total, created_at) VALUES (?, ?, ?, ?, ?)",
+            (sale_id, event_id, payment_method, total, _now()),
+        )
+        conn.executemany(
+            "INSERT INTO event_sale_items (sale_id, event_id, product_id, qty, price) VALUES (?, ?, ?, ?, ?)",
+            [(sale_id, event_id, i["product_id"], i["qty"], i["price"]) for i in items],
+        )
+    return sale_id
+
+
+def list_sales(event_id: str) -> list[dict]:
+    with get_conn() as conn:
+        sales = [dict(r) for r in conn.execute("SELECT * FROM event_sales WHERE event_id = ? ORDER BY created_at DESC, rowid DESC", (event_id,))]
+        items = [dict(r) for r in conn.execute(
+            "SELECT si.*, p.name FROM event_sale_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.event_id = ?", (event_id,))]
+    for s in sales:
+        s["items"] = [i for i in items if i["sale_id"] == s["id"]]
+    return sales
+
+
+def sold_qty_by_product(event_id: str) -> dict[str, int]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT product_id, SUM(qty) q FROM event_sale_items WHERE event_id = ? GROUP BY product_id", (event_id,)).fetchall()
+    return {r["product_id"]: r["q"] for r in rows}
+
+
+def delete_sale(event_id: str, sale_id: str) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM event_sales WHERE id = ? AND event_id = ?", (sale_id, event_id))
+        conn.execute("DELETE FROM event_sale_items WHERE sale_id = ?", (sale_id,))
+    return cur.rowcount > 0

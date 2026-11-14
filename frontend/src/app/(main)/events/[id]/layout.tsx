@@ -1,5 +1,10 @@
-// useParams()를 Suspense 안에서 쓰기 위한 래퍼 (Next 16 요구사항)
+// 행사 상세 공통 틀 (헤더 + 탭). useParams/usePathname 때문에 Suspense 필요 (Next 16)
 import { Suspense } from "react";
+import EventShell from "@/components/events/EventShell";
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={null}>{children}</Suspense>;
+  return (
+    <Suspense fallback={null}>
+      <EventShell>{children}</EventShell>
+    </Suspense>
+  );
 }

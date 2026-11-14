@@ -2,12 +2,14 @@
 // Figma: 판매 설정 · 브랜드와 수량 / 판매 상품 선택
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { type EventOut, type Product, api, fmtRange, won } from "@/components/events/api";
-import { Badge, Button, Card, Empty, ErrorBox, Field, PageHeader, Spinner, inputCls } from "@/components/events/ui";
+import { type EventOut, type Product, api, won } from "@/components/events/api";
+import { useEvent } from "@/components/events/EventShell";
+import { Badge, Button, Card, Empty, ErrorBox, Field, Spinner, inputCls } from "@/components/events/ui";
 
 export default function EventProductsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { reload } = useEvent();
   const [ev, setEv] = useState<EventOut | null>(null);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [qty, setQty] = useState<Record<string, number>>({});
@@ -49,7 +51,8 @@ export default function EventProductsPage() {
     try {
       const body = Object.keys(picked).filter((k) => picked[k]).map((k) => ({ product_id: k, planned_qty: qty[k] ?? 0 }));
       await api(`/api/events/${id}/products`, { method: "PUT", json: body });
-      router.push(`/events/${id}`);
+      await reload();
+      router.push(`/events/${id}/stock`);
     } catch (err) {
       setError((err as Error).message);
       setSaving(false);
@@ -63,17 +66,8 @@ export default function EventProductsPage() {
   const selected = products.filter((p) => picked[p.id]);
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <PageHeader crumb="EVT / 판매 설정" title="판매 브랜드·상품 설정" desc="확인한 행사 정보에 판매할 상품과 예정 수량을 연결합니다." />
-      <p className="mb-4 text-sm text-neutral-500">1 행사 정보 확인　→　<span className="font-semibold text-neutral-900">2 판매 브랜드·상품</span></p>
-
-      <Card className="mb-4">
-        <p className="font-semibold">{ev.name}</p>
-        <p className="mt-1 text-sm text-neutral-500">
-          {fmtRange(ev.start_date, ev.end_date)} · {ev.location || "장소 미정"} · 예상 방문객 {ev.expected_visitors || "-"}명
-        </p>
-        <Button variant="ghost" href={`/events/${id}`} className="mt-2 px-0">행사 상세로 →</Button>
-      </Card>
+    <div>
+      <p className="mb-4 text-sm text-neutral-500">판매할 상품과 준비 수량을 정합니다. 원가는 예산·손익 탭에서 넣어요.</p>
 
       <div className="grid gap-4 md:grid-cols-[1fr_280px]">
         <Card title="상품 목록">

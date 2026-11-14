@@ -187,3 +187,40 @@ export function dLabel(d: number | null) {
 }
 
 export const IMPORT_KEY = "mawd_event_import"; // 가져오기 → 검토 화면 전달용 (sessionStorage)
+
+// ---------- 행사 단계 (Figma: 준비 중 · 운영 중 · 종료) ----------
+export type Phase = "준비 중" | "운영 중" | "종료";
+export function phaseOf(ev: Pick<EventIn, "status" | "start_date" | "end_date">): Phase {
+  const today = new Date().toISOString().slice(0, 10);
+  if (ev.status === "done" || (ev.end_date && ev.end_date < today)) return "종료";
+  if (ev.start_date && ev.start_date <= today && (!ev.end_date || today <= ev.end_date)) return "운영 중";
+  return "준비 중";
+}
+export function phaseLabel(ev: EventOut): string {
+  const p = phaseOf(ev);
+  if (p === "준비 중" && ev.d_day !== null && ev.d_day >= 0) return `준비 중 · ${dLabel(ev.d_day)}`;
+  if (p === "운영 중" && ev.start_date) {
+    const n = Math.floor((Date.now() - new Date(ev.start_date).getTime()) / 86400000) + 1;
+    return `운영 중 · 행사 ${n}일차`;
+  }
+  return p;
+}
+
+// ---------- 예산·손익 / 현장 판매 / 리포트 ----------
+export interface Expense { id?: string; category: string; name: string; planned: number; actual: number }
+export interface BudgetProduct { product_id: string; name: string; price: number; cost: number; prepared_qty: number; unit_margin: number; basis: string }
+export interface BudgetOut {
+  budget: number; target_profit: number; expenses: Expense[]; planned_total: number; actual_total: number;
+  products: BudgetProduct[]; prepared_total: number; expected_revenue: number; expected_cost: number;
+  avg_unit_margin: number; bep_budget: number | null; bep_actual: number | null; target_qty: number | null;
+  full_sale_profit: number; basis: string; warnings: string[];
+}
+export interface StockRow { product_id: string; name: string; price: number; prepared_qty: number; sold_qty: number; remaining: number }
+export interface SaleOut { id: string; payment_method: string; total: number; created_at: string; items: { product_id: string; name: string; qty: number; price: number }[] }
+export interface SalesOut { sales: SaleOut[]; stock: StockRow[]; total_revenue: number; total_qty: number }
+export interface ReportOut {
+  revenue: number; sold_qty: number; goods_cost: number; expenses: number; profit: number; remaining_qty: number;
+  stock: StockRow[]; target_qty: number | null; gap_qty: number | null; by_payment: Record<string, number>; basis: string;
+}
+export const PAY_LABEL: Record<string, string> = { card: "카드", cash: "현금", transfer: "계좌이체" };
+export const signedWon = (n: number) => (n < 0 ? `−${won(-n)}` : won(n));
