@@ -28,15 +28,16 @@ mawd/
 │  ├─ config.py, deps.py, llm.py           공통 · 건드리지 않기
 │  ├─ db.py, schemas.py, prompts.py        공통 · 끝에 추가만
 │  ├─ liner.py                             Liner 웹 검색 web_search(query)
+│  ├─ naver.py                             네이버 검색광고 API (HMAC 서명)
 │  ├─ data/                                fallback 예시 응답
 │  └─ routers/
 │     ├─ stores.py, products.py            완료
 │     ├─ content.py                        은님 (AI 글 생성, 완료)
 │     ├─ contents.py                       은님 (콘텐츠 저장·캘린더, 새로)
 │     ├─ home.py                           은님 (새로)
-│     ├─ events.py                         박정연 (plan, checklist 추가)
-│     ├─ public.py                         박정연 (방문객용 행사 안내, 새로)
-│     └─ ads.py                            박정연 (네이버·메타·당근, 새로)
+│     ├─ events.py                         박정연 (완료)
+│     ├─ public.py                         박정연 (방문객용 행사 안내, 완료)
+│     └─ ads.py                            박정연 (네이버·메타·당근, 완료)
 │
 └─ frontend/                               Next.js App Router + TypeScript + Tailwind
    ├─ app/
@@ -139,11 +140,14 @@ npm run dev   # http://localhost:3000
 - 준비물·재고 계획 `GET/PATCH /api/events/{id}/plan`, 준비물 `PUT /api/events/{id}/supplies`
 - 준비 체크리스트 `GET/POST /api/events/{id}/checklist`, AI 제안 `POST .../checklist/suggest` (use_liner), 항목 `PATCH/DELETE .../checklist/{item_id}`
 - 행사 응답에 `checklist_done`, `checklist_total` 포함 (Figma: 4 / 7 완료)
+- 방문객용 행사 안내 `GET /api/public/events/{id}` (헤더 없음). 공개·스티비 URL·채널톡 키·안내 문구는 `PATCH /api/events/{id}` (`is_public`, `subscribe_url`, `chat_plugin_key`, `notice`)
+- 광고 `GET /api/ads/channels`, 네이버 `POST/DELETE /api/ads/naver/connect`, `GET /api/ads/naver/stats`, AI 초안 `POST /api/ads/naver/draft`, 데모 `GET /api/ads/demo/{meta|daangn}`
+  네이버 서비스 키(`NAVER_ACCESS_LICENSE`, `NAVER_SECRET_KEY`)가 없으면 샘플 데이터(`is_sample: true`)로 동작
 
 다음 (우선순위 순):
 1. (박정연) 행사 화면들 (Next.js)
 2. 콘텐츠 저장·캘린더 `/api/contents` (상태: 초안 → 검토 완료 → 발행 완료), 콘텐츠에 event_id 연결
 3. 홈 `GET /api/home`
-4. 네이버 검색광고 연결·성과·AI 캠페인 초안
-5. 메타·당근 광고 데모(샘플 데이터), 방문객용 행사 안내 페이지, 이메일 초안, FAQ
+4. (박정연) 광고 화면들, 방문객용 안내 화면 (Next.js). 네이버 캠페인 실제 등록(중지 상태)은 시간 남으면
+5. 이메일 초안, FAQ
 6. (기획 확정 시) 행사 예산·손익

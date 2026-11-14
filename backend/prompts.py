@@ -79,3 +79,74 @@ def event_import_user_prompt(url: str, query: str, results: list[dict], year: in
     for i, r in enumerate(results, 1):
         lines.append(f"[{i}] {r['title']}\nURL: {r['url']}\n날짜: {r['date']}\n요약: {r['description']}\n")
     return "\n".join(lines)
+
+
+
+CHECKLIST_SYSTEM = """당신은 팝업스토어·플리마켓·부스에 처음 나가는 1인 브랜드의 행사 준비를 돕는 매니저입니다.
+행사 정보와 판매 상품을 보고 실제로 해야 할 준비 업무 체크리스트를 만듭니다.
+
+규칙:
+- 7~9개, 구체적인 행동으로 (예: "포장재(종이백·OPP) 발주", "카드 결제 단말기 충전·테스트").
+- 각 항목에 d_minus(행사 시작 며칠 전에 할지, 당일은 0)와 category(상품 / 배송 / 현장 운영 / 홍보 / 결제 / 서류 중 하나)를 붙입니다.
+- 판매 예정 수량이 재고보다 많은 상품이 있으면 추가 입고 항목을 꼭 넣습니다.
+- 반입 시간, 신청 마감 같은 행사 정보가 있으면 그 일정에 맞춰 넣습니다.
+- 참고 자료가 있으면 반영하되, 행사 정보에 없는 사실(주최측 규정 등)을 지어내지 않습니다.
+- 이미 있는 항목과 겹치지 않게 합니다.
+
+반드시 아래 JSON 하나만 출력하세요. 설명이나 코드블록 표시 없이.
+{"items": [{"title": "...", "d_minus": 14, "category": "현장 운영"}]}"""
+
+
+def checklist_user_prompt(event: dict, products: list[dict], existing: list[str], tips: list[dict]) -> str:
+    type_label = {"popup": "팝업스토어", "market": "마켓", "booth": "부스"}.get(event.get("type"), event.get("type"))
+    lines = [
+        "행사 정보",
+        f"- 행사명: {event['name']} ({type_label})",
+        f"- 기간: {event.get('start_date') or '미정'} ~ {event.get('end_date') or '미정'}",
+        f"- 장소: {event.get('location') or '미정'}",
+        f"- 운영 시간: {event.get('hours') or '미정'} / 반입 시간: {event.get('load_in_time') or '미정'}",
+        f"- 신청 마감: {event.get('apply_deadline') or '미정'} / 예상 방문객: {event.get('expected_visitors') or '미정'}",
+        "",
+        "판매 상품",
+    ]
+    for p in products:
+        lines.append(f"- {p['name']} (재고 {p['stock']}개, 판매 예정 {p['planned_qty']}개)")
+    if not products:
+        lines.append("- 아직 없음")
+    lines += ["", "이미 있는 항목: " + (", ".join(existing) if existing else "없음")]
+    if tips:
+        lines += ["", "참고 자료 (웹 검색):"]
+        for t in tips:
+            lines.append(f"- {t['title']}: {t['description']}")
+    return "\n".join(lines)
+
+
+
+NAVER_DRAFT_SYSTEM = """당신은 네이버 검색광고(파워링크) 운영을 돕는 마케터입니다.
+1인 브랜드의 행사·상품 홍보용 캠페인 초안을 만듭니다.
+
+규칙:
+- keywords: 5~8개. 실제 사람들이 검색할 짧은 키워드 (지역+행사, 지역+업종, 상품명 등). 띄어쓰기 없이.
+- bid: 키워드별 입찰가(원), 70~500 사이, 구체적인 키워드일수록 낮게.
+- title: 15자 이내, description: 45자 이내. 브랜드명·행사명·날짜 중 핵심을 넣고 과장·최상급 표현 금지.
+- 행사 정보·상품 정보에 없는 할인·가격은 쓰지 않습니다.
+- region_suggestion: 행사 장소의 시·구 단위 (없으면 빈 문자열).
+
+반드시 아래 JSON 하나만 출력하세요. 설명이나 코드블록 표시 없이.
+{"campaign_name": "...", "adgroup_name": "...", "keywords": [{"keyword": "...", "bid": 300}],
+ "title": "...", "description": "...", "region_suggestion": "..."}"""
+
+
+def naver_draft_user_prompt(store: dict, event: dict | None, products: list[dict], goal: str, product_name: str) -> str:
+    lines = [f"브랜드: {store['name']} ({store['category']})", f"목표: {goal}"]
+    if product_name:
+        lines.append(f"광고 상품: {product_name}")
+    if event:
+        lines += [
+            f"행사: {event['name']}",
+            f"기간: {event.get('start_date') or '미정'} ~ {event.get('end_date') or '미정'}",
+            f"장소: {event.get('location') or '미정'}",
+        ]
+    if products:
+        lines.append("판매 상품: " + ", ".join(f"{p['name']}({p['price']}원)" for p in products))
+    return "\n".join(lines)

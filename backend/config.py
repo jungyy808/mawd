@@ -24,6 +24,10 @@ LINER_API_KEY = os.getenv("LINER_API_KEY", "") or (
     os.getenv("OPENAI_API_KEY", "") if "liner.com" in OPENAI_BASE_URL else ""
 )
 
+# 네이버 검색광고 API (서비스 운영 계정 키). 비우면 광고 화면은 샘플 데이터로 동작
+NAVER_ACCESS_LICENSE = os.getenv("NAVER_ACCESS_LICENSE", "")
+NAVER_SECRET_KEY = os.getenv("NAVER_SECRET_KEY", "")
+
 # 배포 주소 (예: https://mawd-api.onrender.com). 비우면 요청 주소 기준으로 이미지 URL 생성
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 

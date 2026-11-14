@@ -27,6 +27,14 @@ LLM 키가 없거나 호출이 실패해도 `/api/content`는 예시 응답(`is_
 | `POST /api/events/import` | `{url?, query?}` → Liner 검색 → AI가 행사 정보표로 정리 (저장 안 함) → `{status, message, fields[], draft, sources[]}` |
 | `GET/POST /api/events`, `GET/PATCH/DELETE /api/events/{id}` | 행사 (draft를 그대로 POST하면 생성). 응답에 d_day, products[] 포함 |
 | `PUT /api/events/{id}/products` | `[{product_id, planned_qty}]` 판매 상품·수량 통째로 교체 → shortage(부족 수량) 계산 |
+| `GET/PATCH /api/events/{id}/plan`, `PUT /api/events/{id}/supplies` | 준비물·재고 계획 (권장 수량, 부족분, 산출 근거) |
+| `GET/POST /api/events/{id}/checklist`, `POST .../checklist/suggest`, `PATCH/DELETE .../checklist/{item_id}` | 준비 체크리스트 (AI 제안, Liner 보강) |
+| `GET /api/ads/channels` | 광고 채널 목록·연결 상태 (네이버 live/sample, 메타·당근 demo) |
+| `POST/DELETE /api/ads/naver/connect` | 네이버 CUSTOMER_ID 연결·해제 |
+| `GET /api/ads/naver/stats?days=7` | 파워링크 성과 (키 없거나 미연결이면 샘플, is_sample) |
+| `POST /api/ads/naver/draft` | AI 파워링크 캠페인 초안 (등록 안 함) |
+| `GET /api/ads/demo/{meta|daangn}` | 메타·당근 데모 샘플 |
+| `GET /api/public/events/{id}` | 방문객용 행사 안내 (헤더 없음, is_public인 행사만) |
 | `GET /uploads/{파일}` | 업로드 이미지 공개 URL |
 
 에러 형식: `{"error": {"code": "...", "message": "..."}}`
