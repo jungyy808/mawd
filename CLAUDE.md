@@ -40,18 +40,20 @@ mawd/
 │
 └─ frontend/                               Next.js App Router + TypeScript + Tailwind
    ├─ app/
-   │  ├─ layout.tsx                        은님 (사이드바 + 본문 + 상세 패널)
-   │  ├─ page.tsx                          은님 (store_id 없으면 /onboarding)
-   │  ├─ onboarding/                       은님
-   │  ├─ home/                             은님
-   │  ├─ content/, content/calendar/       은님
-   │  ├─ brand/, brand/products/           은님
-   │  ├─ settings/                         은님
-   │  ├─ events/                           박정연 (목록)
-   │  ├─ events/new/, events/new/review/   박정연 (Liner 가져오기 → 정보표 검토)
-   │  ├─ events/[id]/, events/[id]/products/  박정연 (상세, 판매 상품·수량)
-   │  ├─ e/[id]/                           박정연 (방문객용 안내, 모바일 우선)
-   │  └─ ads/, ads/naver/, ads/demo/       박정연
+   │  ├─ layout.tsx                        은님 (최소: html·body·폰트만, 사이드바 넣지 않기)
+   │  ├─ page.tsx                          은님 (클라이언트에서 store_id 확인 → /home 또는 /onboarding)
+   │  ├─ onboarding/                       은님 (사이드바 없음)
+   │  ├─ e/[id]/                           박정연 (방문객용 안내, 사이드바 없음, 모바일 우선)
+   │  └─ (main)/                           ← 괄호 폴더 = 주소에 안 나옴. 사이드바가 필요한 화면은 전부 여기
+   │     ├─ layout.tsx                     은님 (사이드바 + 본문 + 상세 패널)
+   │     ├─ home/                          은님
+   │     ├─ content/, content/calendar/    은님
+   │     ├─ brand/, brand/products/        은님
+   │     ├─ settings/                      은님
+   │     ├─ events/                        박정연 (목록)
+   │     ├─ events/new/, events/new/review/   박정연 (Liner 가져오기 → 정보표 검토)
+   │     ├─ events/[id]/, events/[id]/products/  박정연 (상세, 판매 상품·수량)
+   │     └─ ads/, ads/naver/, ads/demo/    박정연
    ├─ components/
    │  ├─ ui/, nav/                         은님 (공통)
    │  ├─ events/, ads/                     박정연
@@ -94,7 +96,7 @@ npm run dev   # http://localhost:3000
 - 에러 형식: `HTTPException(status, {"code": "snake_case_code", "message": "한국어 안내"})`
   → 응답 `{"error": {"code", "message"}}`
 - JSON 키는 snake_case. 날짜 `YYYY-MM-DD`, 금액은 원 단위 정수, 비율은 0~1.
-- ID 접두사: 브랜드 `st_`, 상품 `pd_`, 행사 `ev_`.
+- ID 접두사: 브랜드 `st_`, 상품 `pd_`, 행사 `ev_`, 체크리스트 `ck_`, 준비물 `sp_`.
 - 부분 수정은 PATCH + `model_dump(exclude_none=True)`, 목록 통째 교체는 PUT.
 - 새 테이블은 `db.init_db()`에 `CREATE TABLE IF NOT EXISTS`, 기존 테이블 컬럼 추가는 `_STORE_EXTRA_COLUMNS`처럼 ALTER로.
 - 경로 순서: `/api/events/import` 같은 고정 경로는 `/{event_id}`보다 먼저 선언.
@@ -114,7 +116,11 @@ npm run dev   # http://localhost:3000
 - 404 `store_not_found`를 받으면 store_id를 지우고 `/onboarding`으로 보낸다.
 - AI 호출(글 생성 10~20초, 행사 가져오기 15~40초)은 로딩 화면 필수, 타임아웃 70초 이상.
 - `is_fallback: true`면 "예시" 배지, 행사 가져오기 `status: "failed"`면 직접 입력으로 안내.
-- 클라이언트 컴포넌트(`"use client"`)에서 호출 (localStorage 사용 때문).
+- 클라이언트 컴포넌트(`"use client"`)에서 호출 (localStorage 사용 때문). store_id 확인·리다이렉트도 `useEffect` + `router.replace`로.
+- 동적 경로 id는 클라이언트 컴포넌트에서 `useParams()`로 받는다 (서버 컴포넌트 `params`는 Next.js 15부터 Promise).
+- 사진 업로드는 `FormData`로 보내고 `Content-Type` 헤더를 직접 넣지 않는다 (multipart 경계가 깨짐).
+- `NEXT_PUBLIC_API_URL`은 빌드 때 들어간다. Vercel 환경변수를 바꾸면 다시 배포해야 반영.
+- 사이드바가 필요한 새 화면은 `app/(main)/` 아래에 만든다. 온보딩·방문객 페이지는 `(main)` 밖.
 
 ## 절대 하지 말 것
 
@@ -130,9 +136,12 @@ npm run dev   # http://localhost:3000
 - 상품 CRUD `/api/products`
 - 행사 CRUD `/api/events`, 판매 상품·수량 `PUT /api/events/{id}/products` (shortage 계산)
 - 행사 공고 가져오기 `POST /api/events/import` (Liner 검색 → 행사 정보표 draft)
+- 준비물·재고 계획 `GET/PATCH /api/events/{id}/plan`, 준비물 `PUT /api/events/{id}/supplies`
+- 준비 체크리스트 `GET/POST /api/events/{id}/checklist`, AI 제안 `POST .../checklist/suggest` (use_liner), 항목 `PATCH/DELETE .../checklist/{item_id}`
+- 행사 응답에 `checklist_done`, `checklist_total` 포함 (Figma: 4 / 7 완료)
 
 다음 (우선순위 순):
-1. 준비물·재고 계획 `GET /api/events/{id}/plan` (방문객 × 구매율 × 수량), AI 준비 체크리스트
+1. (박정연) 행사 화면들 (Next.js)
 2. 콘텐츠 저장·캘린더 `/api/contents` (상태: 초안 → 검토 완료 → 발행 완료), 콘텐츠에 event_id 연결
 3. 홈 `GET /api/home`
 4. 네이버 검색광고 연결·성과·AI 캠페인 초안
