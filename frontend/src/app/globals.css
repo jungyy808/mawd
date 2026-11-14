@@ -1,26 +1,16 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Figma "기획" 페이지 공통 색·글꼴. 화면에서는 bg-surface, text-ink 처럼 쓴다. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ink: #1a1a1a; /* 기본 글자, 선택된 버튼 배경 */
+  --color-sub: #595959; /* 보조 설명 글자 */
+  --color-line: #dbdbdb; /* 구분선, 카드 테두리 */
+  --color-chip: #f0f0f0; /* 선택 안 된 버튼·배지 배경 */
+  --color-surface: #f8f8f8; /* 페이지 배경 */
+  --font-sans: var(--font-noto-sans-kr), "Apple SD Gothic Neo", sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
