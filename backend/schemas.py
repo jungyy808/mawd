@@ -157,9 +157,25 @@ class EventOut(EventIn):
 
 # ---------- 행사 공고 가져오기 (Liner) ----------
 
+class ImportCandidate(BaseModel):
+    title: str
+    url: str
+    hostname: str = ""
+    description: str = ""
+    date: str = ""
+
+
 class EventImportIn(BaseModel):
     url: str = Field("", description="모집·참가 안내 링크", examples=["https://..."])
     query: str = Field("", description="행사명 등 검색어 (링크가 없거나 결과가 부족할 때)", examples=["연남 겨울 팝업 참가자 모집"])
+    candidates: list[ImportCandidate] = Field(default_factory=list,
+                                              description="사용자가 고른 공고 (있으면 다시 검색하지 않고 이것만 읽음)")
+
+
+class ImportSearchOut(BaseModel):
+    status: Literal["ok", "failed"]
+    message: str
+    candidates: list[ImportCandidate]
 
 
 class ImportField(BaseModel):

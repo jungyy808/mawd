@@ -1,4 +1,5 @@
 import logging
+import urllib.parse
 import math
 from datetime import date, datetime, timedelta, timezone
 
@@ -16,6 +17,8 @@ from schemas import (
     ChecklistOut,
     ChecklistSuggestIn,
     EventImportIn,
+    ImportCandidate,
+    ImportSearchOut,
     EventImportOut,
     EventIn,
     EventOut,
@@ -92,6 +95,39 @@ IMPORT_LABELS = [
 ]
 
 
+def _search_candidates(url: str, query: str) -> list[dict]:
+    """링크와 검색어로 각각 검색해서 중복 없이 합친다."""
+    results: list[dict] = []
+    seen: set[str] = set()
+    for q in [x for x in (url, f"{query} 참가 모집 공고" if query else "") if x]:
+        for r in liner.web_search(q, max_results=8):
+            if r["url"] and r["url"] not in seen:
+                seen.add(r["url"])
+                results.append(r)
+    return results
+
+
+@router.post("/import/search", response_model=ImportSearchOut,
+             summary="공고 후보 찾기 (Liner 검색만, 빠름) → 사용자가 고른 뒤 /import에 candidates로 보냄")
+def search_import(body: EventImportIn, store: dict = Depends(current_store)):
+    url, query = body.url.strip(), body.query.strip()
+    if not url and not query:
+        raise HTTPException(422, {"code": "validation_error", "message": "url 또는 query 중 하나는 필요해요"})
+    try:
+        results = _search_candidates(url, query)
+    except liner.LinerError as e:
+        log.warning("Liner 검색 실패: %s", e)
+        return ImportSearchOut(status="failed", message="공고를 찾지 못했어요. 행사명을 바꿔 보거나 직접 입력해 주세요.", candidates=[])
+    cands = []
+    for r in results[:10]:
+        host = urllib.parse.urlparse(r["url"]).hostname or ""
+        cands.append(ImportCandidate(title=r["title"] or r["url"], url=r["url"], hostname=host.removeprefix("www."),
+                                     description=(r.get("description") or "")[:200], date=(r.get("date") or "")[:10]))
+    if not cands:
+        return ImportSearchOut(status="failed", message="검색 결과가 없어요. 행사명을 바꿔 보거나 직접 입력해 주세요.", candidates=[])
+    return ImportSearchOut(status="ok", message=f"공고 {len(cands)}개를 찾았어요. 참가하려는 행사를 골라 주세요.", candidates=cands)
+
+
 @router.post("/import", response_model=EventImportOut,
              summary="공고 링크·행사명 → Liner 검색 → 행사 정보표 (저장 안 함, 검토용)")
 def import_event(body: EventImportIn, store: dict = Depends(current_store)):
@@ -102,19 +138,16 @@ def import_event(body: EventImportIn, store: dict = Depends(current_store)):
     empty_fields = [ImportField(key=k, label=lb, value=None, required=req, status="missing")
                     for k, lb, req in IMPORT_LABELS]
 
-    # 1) Liner 검색: 링크와 검색어 각각 검색해서 합치기
-    results: list[dict] = []
-    seen: set[str] = set()
-    try:
-        for q in [x for x in (url, f"{query} 참가 모집 공고" if query else "") if x]:
-            for r in liner.web_search(q, max_results=8):
-                if r["url"] and r["url"] not in seen:
-                    seen.add(r["url"])
-                    results.append(r)
-    except liner.LinerError as e:
-        log.warning("Liner 검색 실패: %s", e)
-        return EventImportOut(status="failed", message="공고를 읽지 못했어요. 링크를 수정하거나 직접 입력해 주세요.",
-                              fields=empty_fields)
+    # 1) 사용자가 고른 공고가 있으면 그것만, 없으면 Liner 검색
+    if body.candidates:
+        results = [c.model_dump() for c in body.candidates]
+    else:
+        try:
+            results = _search_candidates(url, query)
+        except liner.LinerError as e:
+            log.warning("Liner 검색 실패: %s", e)
+            return EventImportOut(status="failed", message="공고를 읽지 못했어요. 링크를 수정하거나 직접 입력해 주세요.",
+                                  fields=empty_fields)
     if not results:
         return EventImportOut(status="failed", message="검색 결과가 없어요. 행사명으로 검색하거나 직접 입력해 주세요.",
                               fields=empty_fields)
@@ -173,7 +206,7 @@ def import_event(body: EventImportIn, store: dict = Depends(current_store)):
             fee=values["fee"] or "",
             booth_size=values["booth_size"] or "",
             expected_visitors=values["expected_visitors"] or 0,
-            source_url=url,
+            source_url=url or (body.candidates[0].url if body.candidates else ""),
         )
     return EventImportOut(status=status, message=msg, fields=fields, draft=draft, sources=sources)
 

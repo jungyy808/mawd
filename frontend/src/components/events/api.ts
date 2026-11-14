@@ -233,3 +233,7 @@ export function publicOrigin(): string {
   const o = window.location.origin;
   return /localhost|127\.0\.0\.1|\[::1\]/.test(o) ? SITE_URL : o;
 }
+
+// 공고 후보 (행사 생성: 찾기 → 고르기 → 정보 채우기)
+export interface ImportCandidate { title: string; url: string; hostname: string; description: string; date: string }
+export interface ImportSearchOut { status: "ok" | "failed"; message: string; candidates: ImportCandidate[] }
