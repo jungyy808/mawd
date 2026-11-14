@@ -1,7 +1,7 @@
 "use client";
 // Figma: 행사 정보표 검토 / 행사 정보 직접 입력
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, type EventIn, type EventOut, IMPORT_KEY, type ImportResult, api } from "@/components/events/api";
 import { Badge, Button, Card, ErrorBox, PageHeader, inputCls } from "@/components/events/ui";
 
@@ -32,6 +32,9 @@ export default function EventReviewPage() {
   const [form, setForm] = useState<EventIn>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // 같은 저장 재요청(더블클릭·네트워크 재시도)은 같은 키 → 서버가 행사를 한 번만 만든다
+  const requestId = useRef(""); // 처음 저장할 때 만들고, 재시도에는 같은 값을 쓴다 (렌더 중에 만들면 빌드가 막힘)
+  const [dupId, setDupId] = useState("");
 
   useEffect(() => {
     const raw = sessionStorage.getItem(IMPORT_KEY);
@@ -54,9 +57,6 @@ export default function EventReviewPage() {
 
   const missingRequired = ROWS.filter((r) => r.required && !form[r.key]);
 
-  // 같은 저장 재요청(더블클릭·네트워크 재시도)은 같은 키 → 서버가 행사를 한 번만 만든다
-  const [requestId] = useState(() => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now())));
-  const [dupId, setDupId] = useState("");
 
   const save = async (allowDuplicate = false) => {
     if (saving) return;
@@ -64,7 +64,8 @@ export default function EventReviewPage() {
     setError("");
     setDupId("");
     try {
-      const ev = await api<EventOut>("/api/events", { method: "POST", json: { ...form, request_id: requestId, allow_duplicate: allowDuplicate } });
+      if (!requestId.current) requestId.current = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      const ev = await api<EventOut>("/api/events", { method: "POST", json: { ...form, request_id: requestId.current, allow_duplicate: allowDuplicate } });
       sessionStorage.removeItem(IMPORT_KEY);
       router.push(`/events/${ev.id}/products`);
     } catch (e) {
@@ -158,7 +159,6 @@ export default function EventReviewPage() {
         {dupId && (
           <div className="mt-2 flex flex-wrap gap-2">
             <Button variant="secondary" href={`/events/${dupId}`}>이미 있는 행사로 가기</Button>
-            <Button variant="ghost" onClick={() => save(true)}>그래도 새로 만들기</Button>
           </div>
         )}
         <div className="mt-5 flex items-center justify-between gap-2">

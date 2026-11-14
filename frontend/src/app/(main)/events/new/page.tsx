@@ -1,8 +1,8 @@
 "use client";
 // Figma: 행사 생성 · 공고 링크/행사명 → 공고 후보 찾기 → 사용자가 고르기 → 정보 채우기 → 검토
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { IMPORT_KEY, type ImportCandidate, type ImportResult, type ImportSearchOut, api } from "@/components/events/api";
+import { useEffect, useState } from "react";
+import { type EventOut, IMPORT_KEY, type ImportCandidate, type ImportResult, type ImportSearchOut, api, fmtRange } from "@/components/events/api";
 import { Button, Card, Field, PageHeader, inputCls } from "@/components/events/ui";
 
 type Step = "form" | "searching" | "pick" | "reading" | "failed";
@@ -27,6 +27,14 @@ export default function EventNewPage() {
   const [failed, setFailed] = useState("");
   const [cands, setCands] = useState<ImportCandidate[]>([]);
   const [picked, setPicked] = useState<string>("");
+  const [mine, setMine] = useState<EventOut[]>([]);
+
+  // 이미 등록한 행사와 겹치는 공고 찾기: 같은 공고 주소이거나, 공고 제목에 내 행사 이름이 들어 있으면
+  useEffect(() => { api<EventOut[]>("/api/events").then(setMine).catch(() => {}); }, []);
+  const norm = (t: string) => t.replace(/[\s·×\-_()[\]]/g, "").toLowerCase();
+  const already = (c: ImportCandidate) =>
+    mine.find((e) => (e.source_url && e.source_url === c.url) || (norm(e.name).length >= 4 && norm(c.title).includes(norm(e.name))));
+  const pickedDup = cands.find((c) => c.url === picked) ? already(cands.find((c) => c.url === picked)!) : undefined;
 
   // 링크 칸: 비었거나 올바른 http(s) 주소여야 함
   const urlErr = (() => {
@@ -138,7 +146,10 @@ export default function EventNewPage() {
                   <label className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition ${on ? "border-[#6d53f1] bg-[#6d53f1]/5 ring-1 ring-[#6d53f1]" : "border-neutral-200 bg-white hover:border-neutral-400"}`}>
                     <input type="radio" name="cand" className="mt-1 h-4 w-4 accent-[#6d53f1]" checked={on} onChange={() => setPicked(c.url)} />
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-neutral-900">{c.title}</span>
+                      <span className="flex flex-wrap items-center gap-2 font-semibold text-neutral-900">
+                        {c.title}
+                        {already(c) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">이미 등록한 행사</span>}
+                      </span>
                       <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-neutral-500">
                         <span className="text-[#03a94e]">{c.hostname}</span>
                         {c.date && <span>{c.date}</span>}
@@ -151,8 +162,19 @@ export default function EventNewPage() {
               );
             })}
           </ul>
+          {pickedDup && (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm" role="alert">
+              <p className="font-semibold text-amber-900">이미 등록한 행사예요</p>
+              <p className="mt-1 text-amber-800">
+                「{pickedDup.name}」 {fmtRange(pickedDup.start_date, pickedDup.end_date)} 행사로 이미 등록돼 있어요. 같은 행사는 한 번만 등록할 수 있어요. 등록한 행사로 이동하거나 다른 공고를 골라 주세요.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button href={`/events/${pickedDup.id}`}>등록한 행사로 가기</Button>
+              </div>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button onClick={read} disabled={!picked} className="h-11">이 공고로 정보 채우기</Button>
+            <Button onClick={read} disabled={!picked || !!pickedDup} className="h-11">이 공고로 정보 채우기</Button>
             <button onClick={manual} className="text-sm text-neutral-600 underline">원하는 공고가 없어요 · 직접 입력</button>
           </div>
         </Card>

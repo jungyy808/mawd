@@ -55,7 +55,14 @@ export default function SideNav() {
   const [events, setEvents] = useState<EventOut[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
 
+  const [ver, setVer] = useState(0);
   useEffect(() => { setPicked(readPick()); }, []);
+  // 행사를 지우면(내 행사 목록 등) 경로가 안 바뀌어도 목록을 다시 불러온다.
+  useEffect(() => {
+    const on = () => { setPicked(readPick()); setVer((v) => v + 1); };
+    window.addEventListener("mawd:events-changed", on);
+    return () => window.removeEventListener("mawd:events-changed", on);
+  }, []);
   useEffect(() => {
     let alive = true;
     api<EventOut[]>("/api/events")
@@ -65,7 +72,7 @@ export default function SideNav() {
       alive = false;
     };
     // 새 행사를 만들거나 지웠을 때 목록이 바뀌도록 경로가 바뀔 때마다 다시 불러온다.
-  }, [pathname]);
+  }, [pathname, ver]);
 
   const current = pickCurrent(events, pathname, picked);
   const base = current ? `/events/${current.id}` : "";

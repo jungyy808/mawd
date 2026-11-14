@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { type BudgetOut, type ChecklistOut, type EventStatus, api, won } from "@/components/events/api";
+import { type BudgetOut, type ChecklistOut, type EventStatus, api, notifyEventDeleted, won } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { Card, inputCls } from "@/components/events/ui";
 import { Checklist } from "@/components/events/sections";
@@ -45,6 +45,7 @@ export default function EventOverviewPage() {
   const remove = async () => {
     if (!confirm("이 행사를 삭제할까요? 예산·판매 기록·체크리스트도 같이 지워져요.")) return;
     await api(`/api/events/${ev.id}`, { method: "DELETE" });
+    notifyEventDeleted(ev.id);
     router.push("/events");
   };
 
@@ -98,7 +99,7 @@ export default function EventOverviewPage() {
             <option value="planning">계획 중</option><option value="preparing">준비 중</option><option value="done">종료</option>
           </select>
         </label>
-        <button onClick={remove} className="text-red-600 underline">행사 삭제</button>
+        <button onClick={remove} className="rounded-lg border border-red-200 px-3 py-2 font-medium text-red-600 hover:bg-red-50">행사 삭제</button>
       </div>
     </div>
   );
