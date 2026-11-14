@@ -108,6 +108,11 @@ class EventIn(BaseModel):
     status: EventStatus = Field("planning", description="planning(계획 중) / preparing(준비 중) / done(완료)")
 
 
+class EventCreateIn(EventIn):
+    request_id: str = Field("", description="중복 저장 방지 키 (같은 저장 재요청은 같은 값 → 새로 만들지 않고 기존 행사 반환)")
+    allow_duplicate: bool = Field(False, description="같은 이름·시작일 행사가 있어도 새로 만들기")
+
+
 class EventUpdate(BaseModel):
     name: str | None = Field(None, min_length=1)
     type: EventType | None = None

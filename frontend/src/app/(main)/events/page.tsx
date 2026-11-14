@@ -2,7 +2,7 @@
 // Figma 디자인 · 내 행사 (BOOTHY)
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { type BudgetOut, type EventOut, type Phase, api, fmtRange, phaseLabel, phaseOf } from "@/components/events/api";
+import { type BudgetOut, type EventOut, type Phase, api, fmtRange, notifyEventDeleted, phaseLabel, phaseOf } from "@/components/events/api";
 import { Empty, ErrorBox, Spinner } from "@/components/events/ui";
 
 const FILTERS: ("전체" | Phase)[] = ["전체", "준비 중", "운영 중", "종료"];
@@ -22,6 +22,22 @@ export default function MyEventsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체");
   const [error, setError] = useState("");
   const [seeding, setSeeding] = useState(false);
+  const [asking, setAsking] = useState<string | null>(null); // 삭제 확인 중인 행사
+  const [deleting, setDeleting] = useState(false);
+
+  const remove = async (id: string) => {
+    setDeleting(true);
+    try {
+      await api(`/api/events/${id}`, { method: "DELETE" });
+      setEvents((list) => (list ?? []).filter((x) => x.id !== id));
+      setAsking(null);
+      notifyEventDeleted(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "삭제하지 못했어요.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const show = (evs: EventOut[]) => {
     setEvents(evs);
@@ -90,9 +106,14 @@ export default function MyEventsPage() {
             : "";
           return (
             <div key={e.id} className="rounded-2xl bg-white px-5 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-              <span className="inline-block rounded-full px-4 py-1 text-sm font-semibold text-white" style={{ background: phaseOf(e) === "종료" ? "#9998a4" : PURPLE }}>
-                {pill}
-              </span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="inline-block rounded-full px-4 py-1 text-sm font-semibold text-white" style={{ background: phaseOf(e) === "종료" ? "#9998a4" : PURPLE }}>
+                  {pill}
+                </span>
+                <button onClick={() => setAsking(asking === e.id ? null : e.id)} className="rounded-lg px-2 py-1 text-sm text-[#9998a4] hover:bg-red-50 hover:text-red-600">
+                  삭제
+                </button>
+              </div>
               <p className="mt-3 text-xl font-bold text-black">{e.name}</p>
               <div className="mt-2 flex flex-wrap gap-x-12 gap-y-1 px-3 text-sm text-[#55545e]">
                 <span>{fmtRange(e.start_date, e.end_date) || "날짜 미정"}</span>
@@ -108,6 +129,19 @@ export default function MyEventsPage() {
                   <span aria-hidden>↗</span> 행사 바로가기
                 </Link>
               </div>
+              {asking === e.id && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
+                  <p className="text-red-700">
+                    <b>{e.name}</b> 행사를 삭제할까요? 예산·판매 기록·체크리스트·발주도 함께 지워지고 되돌릴 수 없어요.
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setAsking(null)} className="rounded-lg border border-neutral-300 bg-white px-3 py-2 font-medium text-neutral-700">취소</button>
+                    <button onClick={() => remove(e.id)} disabled={deleting} className="rounded-lg bg-red-600 px-3 py-2 font-semibold text-white disabled:opacity-50">
+                      {deleting ? "삭제 중…" : "삭제하기"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

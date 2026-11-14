@@ -3,14 +3,14 @@
 // 링크(또는 행사명)로 공고 찾기 → 공고 고르기 → 아래 "가져온 행사 정보"에 채우기 → 다음으로(행사 저장 후 판매 상품 선택)
 // 공고를 못 찾아도 아래 칸에 직접 입력해서 그대로 진행할 수 있다.
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import arrowIcon from "@/assets/events/arrow-up-right.svg";
 import dashIcon from "@/assets/events/range-dash.svg";
 import {
-  type EventIn, type EventOut, type EventType, type ImportCandidate, type ImportField, type ImportResult, type ImportSearchOut,
-  TYPE_LABEL, api,
+  ApiError, type EventIn, type EventOut, type EventType, type ImportCandidate, type ImportField, type ImportResult, type ImportSearchOut,
+  TYPE_LABEL, api, fmtRange,
 } from "@/components/events/api";
-import { ErrorBox } from "@/components/events/ui";
+import { Button, ErrorBox } from "@/components/events/ui";
 
 type Step = "idle" | "searching" | "pick" | "reading" | "failed";
 
@@ -66,10 +66,33 @@ export default function EventNewPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [mine, setMine] = useState<EventOut[]>([]);
+  // 같은 저장 재요청(더블클릭·네트워크 재시도)은 같은 키 → 서버가 행사를 한 번만 만든다
+  const requestId = useRef(""); // 처음 저장할 때 만들고, 재시도에는 같은 값을 쓴다 (렌더 중에 만들면 빌드가 막힘)
+  const [dupId, setDupId] = useState("");
+
+  // 이미 등록한 행사와 겹치는 공고 찾기: 같은 공고 주소이거나, 공고 제목에 내 행사 이름이 들어 있으면
+  useEffect(() => { api<EventOut[]>("/api/events").then(setMine).catch(() => {}); }, []);
+  const norm = (t: string) => t.replace(/[\s·×\-_()[\]]/g, "").toLowerCase();
+  const already = (c: ImportCandidate) =>
+    mine.find((e) => (e.source_url && e.source_url === c.url) || (norm(e.name).length >= 4 && norm(c.title).includes(norm(e.name))));
+  const pickedCand = cands.find((c) => c.url === picked);
+  const pickedDup = pickedCand ? already(pickedCand) : undefined;
+
   const busy = step === "searching" || step === "reading";
   const input = link.trim();
-  // 링크만으로는 검색이 부정확해서, 아래 행사명 칸에 적어 둔 이름이 있으면 같이 보낸다.
-  const searchBody = () => (isLink(input) ? { url: input, query: form.name.trim() } : { url: "", query: input });
+  // 칸 하나로 링크·행사명을 모두 받는다. 링크면 링크로만, 아니면 행사명으로만 찾는다.
+  const linkUrl = isLink(input) ? (/^www\./i.test(input) ? `https://${input}` : input) : "";
+  const urlErr = (() => {
+    if (!linkUrl) return "";
+    try {
+      if (!new URL(linkUrl).hostname.includes(".")) throw new Error();
+      return "";
+    } catch {
+      return "올바른 링크인지 확인해 주세요. https://로 시작하는 공고 주소를 붙여넣거나, 링크 대신 행사명을 입력하세요.";
+    }
+  })();
+  const searchBody = () => (linkUrl ? { url: linkUrl, query: "" } : { url: "", query: input });
 
   const fail = (message: string) => {
     setNotice(message);
@@ -77,7 +100,7 @@ export default function EventNewPage() {
   };
 
   const search = async () => {
-    if (!input || busy) return;
+    if (!input || busy || urlErr) return;
     setStep("searching");
     setNotice("");
     try {
@@ -98,7 +121,7 @@ export default function EventNewPage() {
       const r = await api<ImportResult>("/api/events/import", { method: "POST", json: { ...searchBody(), candidates: chosen } });
       if (r.status === "failed" || !r.draft) return fail(r.message);
       const draft = { ...EMPTY, ...r.draft };
-      if (!draft.source_url) draft.source_url = isLink(input) ? input : chosen[0]?.url ?? "";
+      if (!draft.source_url) draft.source_url = linkUrl || (chosen[0]?.url ?? "");
       const [from, to] = splitRange(draft.hours);
       const [inFrom, inTo] = splitRange(draft.load_in_time);
       setForm(draft);
@@ -120,14 +143,18 @@ export default function EventNewPage() {
     keys.some((k) => fields.find((f) => f.key === k)?.status === "missing" && !(k === "hours" ? hoursFrom || hoursTo : k === "load_in_time" ? loadFrom || loadTo : form[k]));
 
   const save = async () => {
+    if (saving) return;
     setSaving(true);
     setError("");
+    setDupId("");
     try {
-      const json = { ...form, hours: joinRange(hoursFrom, hoursTo), load_in_time: joinRange(loadFrom, loadTo) };
+      if (!requestId.current) requestId.current = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      const json = { ...form, hours: joinRange(hoursFrom, hoursTo), load_in_time: joinRange(loadFrom, loadTo), request_id: requestId.current, allow_duplicate: false };
       const ev = await api<EventOut>("/api/events", { method: "POST", json });
       router.push(`/events/${ev.id}/products`);
     } catch (e) {
-      setError((e as Error).message);
+      if (e instanceof ApiError && e.code === "duplicate_event") setDupId(e.message.match(/ev_[a-z0-9]+/)?.[0] ?? "");
+      setError((e as Error).message.replace(/\s*\(ev_[a-z0-9]+\)/, ""));
       setSaving(false);
     }
   };
@@ -148,6 +175,8 @@ export default function EventNewPage() {
           onChange={(e) => setLink(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && search()}
         />
+
+        {urlErr && <p className="mt-2 text-xs text-red-600">{urlErr}</p>}
 
         {busy && (
           <div className="mt-5 flex items-center gap-3 text-sm text-[#6e6d79]" role="status">
@@ -175,7 +204,10 @@ export default function EventNewPage() {
                     <label className={`flex cursor-pointer gap-3 rounded-[9px] border p-3 transition ${on ? "border-[#6d53f1] bg-[#6d53f1]/5 ring-1 ring-[#6d53f1]" : "border-neutral-200 bg-white hover:border-neutral-400"}`}>
                       <input type="radio" name="cand" className="mt-1 h-4 w-4 accent-[#6d53f1]" checked={on} onChange={() => setPicked(c.url)} />
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-neutral-900">{c.title}</span>
+                        <span className="flex flex-wrap items-center gap-2 font-semibold text-neutral-900">
+                          {c.title}
+                          {already(c) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">이미 등록한 행사</span>}
+                        </span>
                         <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-neutral-500">
                           <span className="text-[#03a94e]">{c.hostname}</span>
                           {c.date && <span>{c.date}</span>}
@@ -188,17 +220,28 @@ export default function EventNewPage() {
                 );
               })}
             </ul>
+            {pickedDup && (
+              <div className="mt-4 rounded-[9px] border border-amber-300 bg-amber-50 p-4 text-sm" role="alert">
+                <p className="font-semibold text-amber-900">이미 등록한 행사예요</p>
+                <p className="mt-1 text-amber-800">
+                  「{pickedDup.name}」 {fmtRange(pickedDup.start_date, pickedDup.end_date)} 행사로 이미 등록돼 있어요. 같은 행사는 한 번만 등록할 수 있어요. 등록한 행사로 이동하거나 다른 공고를 골라 주세요.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button href={`/events/${pickedDup.id}`}>등록한 행사로 가기</Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         <div className="mt-[29px] flex justify-end">
           {step === "pick" ? (
-            <button type="button" onClick={read} disabled={!picked} className={`${primaryBtn} px-[14px]`}>
+            <button type="button" onClick={read} disabled={!picked || !!pickedDup} className={`${primaryBtn} px-[14px]`}>
               <img src={arrowIcon.src} alt="" width={14} height={14} />
               이 공고로 정보 채우기
             </button>
           ) : (
-            <button type="button" onClick={search} disabled={!input || busy} className={`${primaryBtn} px-[14px]`}>
+            <button type="button" onClick={search} disabled={!input || busy || !!urlErr} className={`${primaryBtn} px-[14px]`}>
               <img src={arrowIcon.src} alt="" width={14} height={14} />
               {busy ? "가져오는 중…" : "행사 정보 가져오기"}
             </button>
@@ -251,6 +294,11 @@ export default function EventNewPage() {
       </section>
 
       {error && <div className="mt-4"><ErrorBox message={error} /></div>}
+      {dupId && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button variant="secondary" href={`/events/${dupId}`}>이미 있는 행사로 가기</Button>
+        </div>
+      )}
       <div className="mt-7 flex justify-end">
         <button type="button" onClick={save} disabled={!form.name.trim() || saving || busy} className={`${primaryBtn} w-[162px]`}>
           {saving ? "저장 중…" : "다음으로"}

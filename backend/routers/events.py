@@ -16,6 +16,7 @@ from schemas import (
     ChecklistItemUpdate,
     ChecklistOut,
     ChecklistSuggestIn,
+    EventCreateIn,
     EventImportIn,
     ImportCandidate,
     ImportSearchOut,
@@ -95,15 +96,33 @@ IMPORT_LABELS = [
 ]
 
 
+def _check_url(url: str) -> str:
+    """공고 링크 검사: http(s)이고 도메인이 있는 공개 주소만 (사설망·localhost 차단)."""
+    import ipaddress
+    u = urllib.parse.urlparse(url.strip())
+    host = (u.hostname or "").lower()
+    if u.scheme not in ("http", "https") or "." not in host:
+        raise HTTPException(422, {"code": "invalid_url", "message": "올바른 링크인지 확인해 주세요. (https://로 시작하는 공고 주소)"})
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            raise HTTPException(422, {"code": "invalid_url", "message": "공개된 공고 주소만 가져올 수 있어요."})
+    except ValueError:
+        pass
+    if host == "localhost" or host.endswith(".local"):
+        raise HTTPException(422, {"code": "invalid_url", "message": "공개된 공고 주소만 가져올 수 있어요."})
+    return url.strip()
+
+
 def _search_candidates(url: str, query: str) -> list[dict]:
-    """링크와 검색어로 각각 검색해서 중복 없이 합친다."""
+    """링크가 있으면 링크로만, 없으면 행사명(키워드)으로만 검색한다."""
+    q = _check_url(url) if url else (f"{query} 참가 모집 공고" if query else "")
     results: list[dict] = []
     seen: set[str] = set()
-    for q in [x for x in (url, f"{query} 참가 모집 공고" if query else "") if x]:
-        for r in liner.web_search(q, max_results=8):
-            if r["url"] and r["url"] not in seen:
-                seen.add(r["url"])
-                results.append(r)
+    for r in liner.web_search(q, max_results=10 if not url else 8):
+        if r["url"] and r["url"] not in seen:
+            seen.add(r["url"])
+            results.append(r)
     return results
 
 
@@ -261,8 +280,21 @@ def list_events(store: dict = Depends(current_store)):
 
 
 @router.post("", response_model=EventOut, summary="행사 생성 (직접 입력 또는 import의 draft)")
-def create_event(body: EventIn, store: dict = Depends(current_store)):
-    eid = db.create_event(store["id"], body.model_dump())
+def create_event(body: EventCreateIn, store: dict = Depends(current_store)):
+    # 1) 같은 저장 재요청(더블클릭·재시도)이면 이미 만든 행사를 그대로 돌려준다
+    if body.request_id:
+        prev = db.find_event_by_request(store["id"], body.request_id)
+        if prev:
+            return _out(prev)
+    # 2) 같은 이름·같은 시작일 행사가 이미 있으면 물어본다
+    if not body.allow_duplicate:
+        same = db.find_same_event(store["id"], body.name, body.start_date)
+        if same:
+            raise HTTPException(409, {"code": "duplicate_event",
+                                      "message": f"같은 이름·날짜의 행사가 이미 있어요: {same['name']} ({same['id']})"})
+    eid = db.create_event(store["id"], body.model_dump(exclude={"request_id", "allow_duplicate"}))
+    if body.request_id:
+        db.set_event_request(store["id"], eid, body.request_id)
     return _out(db.get_event(store["id"], eid))
 
 

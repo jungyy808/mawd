@@ -1,8 +1,8 @@
 "use client";
 // Figma: 행사 정보표 검토 / 행사 정보 직접 입력
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { type EventIn, type EventOut, IMPORT_KEY, type ImportResult, api } from "@/components/events/api";
+import { useEffect, useRef, useState } from "react";
+import { ApiError, type EventIn, type EventOut, IMPORT_KEY, type ImportResult, api } from "@/components/events/api";
 import { Badge, Button, Card, ErrorBox, PageHeader, inputCls } from "@/components/events/ui";
 
 const EMPTY: EventIn = {
@@ -32,6 +32,9 @@ export default function EventReviewPage() {
   const [form, setForm] = useState<EventIn>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // 같은 저장 재요청(더블클릭·네트워크 재시도)은 같은 키 → 서버가 행사를 한 번만 만든다
+  const requestId = useRef(""); // 처음 저장할 때 만들고, 재시도에는 같은 값을 쓴다 (렌더 중에 만들면 빌드가 막힘)
+  const [dupId, setDupId] = useState("");
 
   useEffect(() => {
     const raw = sessionStorage.getItem(IMPORT_KEY);
@@ -54,15 +57,20 @@ export default function EventReviewPage() {
 
   const missingRequired = ROWS.filter((r) => r.required && !form[r.key]);
 
-  const save = async () => {
+
+  const save = async (allowDuplicate = false) => {
+    if (saving) return;
     setSaving(true);
     setError("");
+    setDupId("");
     try {
-      const ev = await api<EventOut>("/api/events", { method: "POST", json: form });
+      if (!requestId.current) requestId.current = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      const ev = await api<EventOut>("/api/events", { method: "POST", json: { ...form, request_id: requestId.current, allow_duplicate: allowDuplicate } });
       sessionStorage.removeItem(IMPORT_KEY);
       router.push(`/events/${ev.id}/products`);
     } catch (e) {
-      setError((e as Error).message);
+      if (e instanceof ApiError && e.code === "duplicate_event") setDupId(e.message.match(/ev_[a-z0-9]+/)?.[0] ?? "");
+      setError((e as Error).message.replace(/\s*\(ev_[a-z0-9]+\)/, ""));
       setSaving(false);
     }
   };
@@ -148,11 +156,16 @@ export default function EventReviewPage() {
         </div>
         <p className="mt-3 text-xs text-neutral-500">자동 입력된 값도 수정할 수 있습니다.</p>
         {error && <div className="mt-3"><ErrorBox message={error} /></div>}
+        {dupId && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button variant="secondary" href={`/events/${dupId}`}>이미 있는 행사로 가기</Button>
+          </div>
+        )}
         <div className="mt-5 flex items-center justify-between gap-2">
           <p className="text-xs text-neutral-500">
             {missingRequired.length ? `필수 항목을 채우면 판매 설정으로 이동합니다: ${missingRequired.map((r) => r.label).join(", ")}` : ""}
           </p>
-          <Button onClick={save} disabled={!form.name.trim() || saving}>
+          <Button onClick={() => save()} disabled={!form.name.trim() || saving}>
             {saving ? "저장 중…" : "확인하고 판매 설정 →"}
           </Button>
         </div>

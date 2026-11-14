@@ -248,3 +248,10 @@ export interface OrderOut {
 }
 export interface OrdersOut { orders: OrderOut[]; stock: StockRow[] }
 export const ORDER_LABEL: Record<OrderStatus, string> = { planned: "발주 예정", ordered: "발주 완료", received: "입고 완료" };
+
+// 행사를 지운 뒤: 사이드바 선택이 지운 행사였으면 비우고, 사이드바·홈이 목록을 다시 불러오게 알린다.
+export function notifyEventDeleted(id: string) {
+  try { if (localStorage.getItem("mawd_current_event") === id) localStorage.removeItem("mawd_current_event"); } catch {}
+  window.dispatchEvent(new Event("mawd:events-changed"));
+  window.dispatchEvent(new Event("mawd:event-picked"));
+}
