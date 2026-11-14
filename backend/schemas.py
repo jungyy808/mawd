@@ -17,6 +17,7 @@ class StoreIn(BaseModel):
     sales_channel: str = Field("", description="판매 채널", examples=["스마트스토어"])
     region: str = Field("", description="주 활동 지역 (선택, 콘텐츠 지역 키워드에 사용)", examples=["서울 마포구"])
     monthly_budget: int = Field(0, ge=0, description="월 광고 예산(원, 선택)", examples=[300000])
+    store_url: str = Field("", description="온라인 스토어 URL (https)", examples=["https://smartstore.naver.com/sosogongbang"])
 
 
 class StoreUpdate(BaseModel):
@@ -30,6 +31,7 @@ class StoreUpdate(BaseModel):
     sales_channel: str | None = None
     region: str | None = None
     monthly_budget: int | None = Field(None, ge=0)
+    store_url: str | None = None
 
 
 class StoreCreate(StoreIn):
@@ -89,6 +91,7 @@ class ProductIn(BaseModel):
     url: str = Field("", description="상품 URL", examples=["https://smartstore.naver.com/..."])
     selling_point: str = Field("", description="소구점", examples=["가벼운 휴대성"])
     cost: int = Field(0, ge=0, description="원가(원) · 손익 계산용", examples=[5000])
+    image_url: str = Field("", description="상품 이미지 (선택 · POST /api/products/{id}/image 로 업로드)")
 
 
 class ProductUpdate(BaseModel):
@@ -99,6 +102,7 @@ class ProductUpdate(BaseModel):
     url: str | None = None
     selling_point: str | None = None
     cost: int | None = Field(None, ge=0)
+    image_url: str | None = None
 
 
 class ProductOut(ProductIn):

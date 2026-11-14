@@ -1,7 +1,7 @@
 "use client";
 // Figma 26 · 행사 문의 관리 / 채널톡 자동화 규칙 / 자동 응답 테스트 · 이메일 발송 / AI 본문 초안 / 발송 검토
 import { useEffect, useState } from "react";
-import { type EventOut, api } from "@/components/events/api";
+import { type EventOut, api, publicOrigin } from "@/components/events/api";
 import { Badge, Button, Card, CopyButton, ErrorBox, Field, inputCls } from "@/components/events/ui";
 
 type Rule = { id: string; keyword: string; answer: string; active: boolean };
@@ -202,6 +202,23 @@ export function EmailSend({ ev }: { ev: EventOut }) {
   const [mode, setMode] = useState<"now" | "reserve" | null>(null);
   const [when, setWhen] = useState("");
   const [results, setResults] = useState<SendResult[]>([]);
+  const [storeUrl, setStoreUrl] = useState("");
+  const [storeSaved, setStoreSaved] = useState(false);
+  const [storeErr, setStoreErr] = useState("");
+  useEffect(() => {
+    api<{ store: { store_url?: string } }>("/api/stores/me").then((r) => {
+      const u = r.store.store_url ?? "";
+      setStoreUrl(u); setStoreSaved(!!u); if (u) setUrl((x) => x || u);
+    }).catch(() => {});
+  }, []);
+  const saveStoreUrl = async () => {
+    setStoreErr("");
+    if (!isHttps(storeUrl.trim())) { setStoreErr("https:// 로 시작하는 주소를 넣어 주세요."); return; }
+    try {
+      await api("/api/stores/me", { method: "PATCH", json: { store_url: storeUrl.trim() } });
+      setStoreSaved(true); setUrl(storeUrl.trim());
+    } catch (e) { setStoreErr((e as Error).message); }
+  };
   const [purpose, setPurpose] = useState("방문 감사 · 온라인 스토어 안내");
   const [emphasis, setEmphasis] = useState("");
   const [tone, setTone] = useState("다정하게");
@@ -237,6 +254,17 @@ export function EmailSend({ ev }: { ev: EventOut }) {
         <a href="https://stibee.com" target="_blank" rel="noreferrer" className="inline-block font-semibold underline">스티비 열기 ↗</a>
       </Notice>
       {error && <ErrorBox message={error} />}
+
+      <Card title="온라인 스토어 링크" right={storeSaved ? <Badge tone="green">저장 완료</Badge> : undefined}>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[260px] flex-1">
+            <Field label="온라인 스토어 URL"><input className={inputCls} value={storeUrl} onChange={(e) => { setStoreUrl(e.target.value); setStoreSaved(false); }} placeholder="https://smartstore.naver.com/…" /></Field>
+          </div>
+          <Button onClick={saveStoreUrl} disabled={storeSaved || !storeUrl.trim()}>{storeSaved ? "저장됨 ✓" : "저장"}</Button>
+        </div>
+        {storeErr && <p className="mt-1 text-xs text-red-600">{storeErr}</p>}
+        <p className="mt-2 text-xs text-neutral-500">저장하면 이메일 초안의 ‘온라인 스토어 보기’ 버튼 링크로 자동으로 들어가요.</p>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="AI 본문 초안">
@@ -316,6 +344,66 @@ export function EmailSend({ ev }: { ev: EventOut }) {
         )}
         <p className="mt-3 text-xs text-neutral-500">최종 발송 상태는 스티비 연결 후 이메일 ID로 조회해요. 상태가 불명확하면 조회한 뒤 다시 시도해요.</p>
       </Card>
+    </div>
+  );
+}
+
+
+export function ApiStatus({ onGo }: { onGo: (tab: "inquiry" | "email") => void }) {
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <div className="rounded-lg bg-neutral-50 p-3"><p className="text-xs text-neutral-500">{label}</p><p className="mt-0.5 text-sm font-medium">{value}</p></div>
+  );
+  return (
+    <div className="space-y-4">
+      <div><h2 className="text-xl font-bold">고객 관리 API 연동</h2><p className="mt-1 text-sm text-neutral-600">이메일 발송과 문의 수신 권한을 확인해요.</p></div>
+      <Card title="스티비" right={<Badge tone="amber">연결 전</Badge>}>
+        <div className="space-y-2">
+          <Row label="연결 상태" value="미연결 · Workspace API 키 없음 (발송은 프로 요금제 이상)" />
+          <Row label="행사 주소록과 발신자" value="스티비에 만든 주소록 ID와 인증된 발신자를 행사에 연결" />
+          <p className="text-xs text-neutral-500">이메일 생성·발송·예약은 프로 이상, 구독자 조회는 스탠다드 이상, 주소록·발신자 자동 조회는 엔터프라이즈에서 지원해요. 키는 서버에만 보관해요.</p>
+          <Button onClick={() => onGo("email")}>이메일 탭 열기</Button>
+        </div>
+      </Card>
+      <Card title="채널톡" right={<Badge tone="amber">연결 전</Badge>}>
+        <div className="space-y-2">
+          <Row label="연결 점검" value="상담 조회 · 봇 응답 권한 · 웹훅 수신 테스트 (Open API 키·시크릿 필요, 유료 플랜)" />
+          <Row label="행사와 상담 연결" value="행사별 태그 또는 안내 페이지 링크로 상담을 행사에 매핑" />
+          <Button onClick={() => onGo("inquiry")}>문의 자동화 설정</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export function QrPrint({ ev, brand, onClose }: { ev: EventOut; brand: string; onClose: () => void }) {
+  const target = ev.subscribe_url || `${publicOrigin()}/e/${ev.id}`;
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=${encodeURIComponent(target)}`;
+  const print = () => {
+    const w = window.open("", "_blank", "width=600,height=800");
+    if (!w) return;
+    w.document.write(`<html><head><title>${ev.name} QR</title><style>body{font-family:sans-serif;text-align:center;padding:48px}h1{font-size:32px;margin:12px 0 24px}p{color:#555}</style></head><body>
+      <p>${brand} · ${ev.name}</p><h1>${brand} 소식 받아보기</h1><img src="${qr}" width="320" height="320" onload="setTimeout(()=>window.print(),300)"/>
+      <p style="margin-top:24px;font-size:18px;color:#111">QR을 스캔하고 이메일을 등록해 주세요.</p></body></html>`);
+    w.document.close();
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold">부스 QR 인쇄 미리보기</h2>
+        <p className="mt-1 text-sm text-neutral-600">이 안내물을 인쇄해 부스에 비치해 주세요.</p>
+        <div className="mt-4 rounded-xl border border-neutral-200 p-5 text-center">
+          <p className="text-xs text-neutral-500">{brand} · {ev.name}</p>
+          <p className="mt-2 text-lg font-bold">{brand} 소식 받아보기</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt="부스 QR" className="mx-auto mt-3 h-40 w-40" />
+          <p className="mt-3 text-sm font-medium">QR을 스캔하고 이메일을 등록해 주세요.</p>
+        </div>
+        <p className="mt-3 text-xs text-neutral-500">{ev.subscribe_url ? "스티비 구독 폼으로 연결돼요." : "구독 폼이 없어 방문객 안내 페이지로 연결돼요. 구독 폼을 등록하면 그 주소로 바뀌어요."}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button onClick={print}>인쇄하기</Button>
+          <Button variant="secondary" onClick={onClose}>닫기</Button>
+        </div>
+      </div>
     </div>
   );
 }

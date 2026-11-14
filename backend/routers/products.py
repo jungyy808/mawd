@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
+
+import config
 
 import db
 from deps import current_store
@@ -46,3 +48,23 @@ def delete_product(product_id: str, store: dict = Depends(current_store)):
     _get_or_404(store["id"], product_id)
     db.delete_product(store["id"], product_id)
     return Response(status_code=204)
+
+
+@router.post("/{product_id}/image", response_model=ProductOut, summary="상품 이미지 첨부 (선택 · jpg/png/webp 5MB 이하)")
+async def upload_image(product_id: str, request: Request, image: UploadFile = File(...), store: dict = Depends(current_store)):
+    from routers.content import ALLOWED_TYPES, _save_image
+    _get_or_404(store["id"], product_id)
+    if image.content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, {"code": "bad_image_type", "message": "jpg, png, webp만 가능해요"})
+    data = await image.read()
+    if len(data) > config.MAX_IMAGE_BYTES:
+        raise HTTPException(400, {"code": "image_too_large", "message": "사진은 5MB 이하만 가능해요"})
+    db.update_product(store["id"], product_id, {"image_url": _save_image(data, request)})
+    return _out(db.get_product(store["id"], product_id))
+
+
+@router.delete("/{product_id}/image", response_model=ProductOut, summary="상품 이미지 제거")
+def remove_image(product_id: str, store: dict = Depends(current_store)):
+    _get_or_404(store["id"], product_id)
+    db.update_product(store["id"], product_id, {"image_url": ""})
+    return _out(db.get_product(store["id"], product_id))

@@ -119,6 +119,8 @@ export interface Product {
   stock: number;
   url: string;
   selling_point: string;
+  cost?: number;
+  image_url?: string;
 }
 
 export interface PlanOut {
@@ -258,4 +260,11 @@ export function notifyEventDeleted(id: string) {
   try { if (localStorage.getItem("mawd_current_event") === id) localStorage.removeItem("mawd_current_event"); } catch {}
   window.dispatchEvent(new Event("mawd:events-changed"));
   window.dispatchEvent(new Event("mawd:event-picked"));
+}
+
+/** 상품 이미지 첨부 (선택) */
+export async function uploadProductImage(productId: string, file: File): Promise<Product> {
+  const fd = new FormData();
+  fd.append("image", file);
+  return api<Product>(`/api/products/${productId}/image`, { method: "POST", body: fd });
 }

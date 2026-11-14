@@ -2,7 +2,7 @@
 // Figma: 판매 설정 · 브랜드와 수량 / 판매 상품 선택
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { type EventOut, type Product, api, won } from "@/components/events/api";
+import { type EventOut, type Product, api, uploadProductImage, won } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Spinner, inputCls } from "@/components/events/ui";
 
@@ -18,6 +18,11 @@ export default function EventProductsPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [newP, setNewP] = useState({ name: "", sku: "", price: "", stock: "" });
+  const [newImg, setNewImg] = useState<File | null>(null);
+  const [brand, setBrand] = useState("");
+  const [brandPicked, setBrandPicked] = useState(true);
+  const [added, setAdded] = useState("");
+  useEffect(() => { api<{ store: { name: string } }>("/api/stores/me").then((r) => setBrand(r.store.name)).catch(() => {}); }, []);
 
   const load = useCallback(async () => {
     try {
@@ -34,13 +39,16 @@ export default function EventProductsPage() {
 
   const addProduct = async () => {
     try {
-      const p = await api<Product>("/api/products", {
+      let p = await api<Product>("/api/products", {
         method: "POST",
         json: { name: newP.name, sku: newP.sku, price: Number(newP.price || 0), stock: Number(newP.stock || 0) },
       });
+      if (newImg) p = await uploadProductImage(p.id, newImg).catch(() => p);
       setProducts((ps) => [...(ps ?? []), p]);
       setPicked((s) => ({ ...s, [p.id]: true }));
       setNewP({ name: "", sku: "", price: "", stock: "" });
+      setNewImg(null);
+      setAdded(p.name);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -69,6 +77,17 @@ export default function EventProductsPage() {
     <div>
       <p className="mb-4 text-sm text-neutral-500">판매할 상품과 준비 수량을 정합니다. 원가는 예산·손익 탭에서 넣어요.</p>
 
+      <Card title="판매 브랜드" className="mb-4">
+        <p className="text-sm text-neutral-600">브랜드를 선택하면 해당 브랜드의 판매 상품 목록이 열려요.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button onClick={() => setBrandPicked(true)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${brandPicked ? "bg-[#6d53f1] text-white" : "border border-[#6d53f1] text-[#6d53f1]"}`}>
+            {brand || "내 브랜드"} {brandPicked ? "선택됨 ✓" : "선택"}
+          </button>
+          <a href="/settings/brand" className="text-sm text-neutral-500 underline">브랜드 정보 수정</a>
+        </div>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-[1fr_280px]">
         <Card title="상품 목록">
           <input className={`${inputCls} mb-3`} placeholder="상품명 또는 SKU 검색" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -82,6 +101,10 @@ export default function EventProductsPage() {
                 return (
                   <li key={p.id} className="flex flex-wrap items-center gap-3 py-3">
                     <input type="checkbox" className="h-4 w-4" checked={!!picked[p.id]} onChange={(e) => setPicked((s) => ({ ...s, [p.id]: e.target.checked }))} />
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt="" className="h-10 w-10 rounded-md object-cover" />
+                    ) : <span className="flex h-10 w-10 items-center justify-center rounded-md bg-neutral-100 text-[10px] text-neutral-400">없음</span>}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{p.sku ? `${p.sku} · ` : ""}{p.name}</p>
                       <p className="text-xs text-neutral-500">{won(p.price)} · 행사 가용 {p.stock}개</p>
@@ -113,15 +136,32 @@ export default function EventProductsPage() {
             {error && <div className="mt-3"><ErrorBox message={error} /></div>}
             <Button onClick={save} disabled={saving} className="mt-4 w-full">{saving ? "저장 중…" : "행사 저장하고 준비 시작"}</Button>
           </Card>
-          <Card title="상품 빠른 추가">
+          <Card title="판매 상품 추가">
             <div className="space-y-2">
-              <Field label="상품명" required><input className={inputCls} value={newP.name} onChange={(e) => setNewP({ ...newP, name: e.target.value })} /></Field>
-              <div className="grid grid-cols-3 gap-2">
-                <input className={inputCls} placeholder="SKU" value={newP.sku} onChange={(e) => setNewP({ ...newP, sku: e.target.value })} />
-                <input className={inputCls} placeholder="가격" type="number" value={newP.price} onChange={(e) => setNewP({ ...newP, price: e.target.value })} />
-                <input className={inputCls} placeholder="재고" type="number" value={newP.stock} onChange={(e) => setNewP({ ...newP, stock: e.target.value })} />
+              <p className="text-xs text-neutral-500">{brand || "내 브랜드"} 상품 목록에 등록하고 이번 행사에 선택해요.</p>
+              <Field label="상품명" required><input className={inputCls} value={newP.name} onChange={(e) => { setAdded(""); setNewP({ ...newP, name: e.target.value }); }} placeholder="예: 겨울 엽서" /></Field>
+              <Field label="판매 가격 (원)" required><input className={inputCls} type="number" value={newP.price} onChange={(e) => setNewP({ ...newP, price: e.target.value })} placeholder="3000" /></Field>
+              <div className="grid grid-cols-2 gap-2">
+                <input className={inputCls} placeholder="SKU (선택)" value={newP.sku} onChange={(e) => setNewP({ ...newP, sku: e.target.value })} />
+                <input className={inputCls} placeholder="재고 (선택)" type="number" value={newP.stock} onChange={(e) => setNewP({ ...newP, stock: e.target.value })} />
               </div>
-              <Button variant="secondary" onClick={addProduct} disabled={!newP.name.trim()} className="w-full">추가</Button>
+              <div className="rounded-lg bg-neutral-50 p-3 text-xs">
+                <p className="font-semibold text-neutral-700">상품 이미지 · 선택</p>
+                {newImg ? (
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="truncate">첨부됨 · {newImg.name}</span>
+                    <button onClick={() => setNewImg(null)} className="shrink-0 rounded border border-neutral-300 bg-white px-2 py-1">이미지 제거</button>
+                  </div>
+                ) : (
+                  <label className="mt-1 block cursor-pointer text-[#6d53f1] underline">
+                    이미지 첨부
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => setNewImg(e.target.files?.[0] ?? null)} />
+                  </label>
+                )}
+                <p className="mt-1 text-neutral-500">이미지를 첨부하지 않아도 상품을 등록할 수 있어요.</p>
+              </div>
+              <Button onClick={addProduct} disabled={!newP.name.trim() || !newP.price} className="w-full">상품 등록하고 선택</Button>
+              {added && <p className="text-xs font-medium text-emerald-700">‘{added}’을(를) 추가하고 선택했어요 ✓</p>}
               <Badge>브랜드·상품 메뉴에서도 관리할 수 있어요</Badge>
             </div>
           </Card>

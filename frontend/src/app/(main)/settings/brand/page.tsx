@@ -2,14 +2,14 @@
 // Figma 15 · 브랜드·상품: 브랜드 프로필 · 상품 목록 · 상품 세부 정보
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, won } from "@/components/events/api";
+import { api, uploadProductImage, won } from "@/components/events/api";
 import { Button, ErrorBox, Field, Spinner, inputCls } from "@/components/events/ui";
 
 type Store = { name: string; category: string; intro: string; tone: string; target_customer: string; sales_channel: string; region: string; monthly_budget: number };
-type Product = { id: string; name: string; sku: string; price: number; stock: number; url: string; selling_point: string; cost: number };
+type Product = { id: string; name: string; sku: string; price: number; stock: number; url: string; selling_point: string; cost: number; image_url?: string };
 type Draft = Omit<Product, "id">;
 
-const EMPTY: Draft = { name: "", sku: "", price: 0, stock: 0, url: "", selling_point: "", cost: 0 };
+const EMPTY: Draft = { name: "", sku: "", price: 0, stock: 0, url: "", selling_point: "", cost: 0, image_url: "" };
 
 function Panel({ title, right, children, className = "" }: { title: string; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
@@ -33,6 +33,20 @@ export default function BrandPage() {
   const [prodSaved, setProdSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [imgBusy, setImgBusy] = useState(false);
+
+  const attach = async (f: File | undefined) => {
+    if (!f || !selected || selected === "new") return;
+    setImgBusy(true); setError("");
+    try { const p = await uploadProductImage(selected, f); setDraft((d) => ({ ...d, image_url: p.image_url ?? "" })); await loadProducts(); }
+    catch (e) { setError((e as Error).message); } finally { setImgBusy(false); }
+  };
+  const detach = async () => {
+    if (!selected || selected === "new") return;
+    setImgBusy(true);
+    try { await api(`/api/products/${selected}/image`, { method: "DELETE" }); setDraft((d) => ({ ...d, image_url: "" })); await loadProducts(); }
+    catch (e) { setError((e as Error).message); } finally { setImgBusy(false); }
+  };
 
   const loadProducts = () => api<Product[]>("/api/products").then((l) => { setProducts(l); return l; });
 
@@ -123,9 +137,15 @@ export default function BrandPage() {
               {products.map((p) => (
                 <li key={p.id}>
                   <button onClick={() => pick(p)}
-                    className={`w-full rounded-lg px-3 py-3 text-left ${selected === p.id ? "bg-[#6d53f1]/10" : "hover:bg-neutral-50"}`}>
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left ${selected === p.id ? "bg-[#6d53f1]/10" : "hover:bg-neutral-50"}`}>
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                    ) : <span className="h-10 w-10 shrink-0 rounded-md bg-neutral-100" />}
+                    <span className="min-w-0">
                     <p className="font-semibold text-black">{p.sku ? `${p.sku} · ` : ""}{p.name}</p>
                     <p className="mt-0.5 text-sm text-[#55545e]">{won(p.price)} · 현재고 {p.stock}개{p.cost ? ` · 원가 ${won(p.cost)}` : ""}</p>
+                    </span>
                   </button>
                 </li>
               ))}
@@ -141,6 +161,24 @@ export default function BrandPage() {
                 <Field label="개당 원가 (원)" hint="손익분기점 계산에 써요"><input inputMode="numeric" className={inputCls} value={draft.cost || ""} onChange={(e) => setD("cost", num(e.target.value))} placeholder="5000" /></Field>
                 <Field label="현재고 (개)"><input inputMode="numeric" className={inputCls} value={draft.stock || ""} onChange={(e) => setD("stock", num(e.target.value))} placeholder="30" /></Field>
                 <Field label="상품 URL"><input className={inputCls} value={draft.url} onChange={(e) => setD("url", e.target.value)} placeholder="https://smartstore.naver.com/…" /></Field>
+                <div className="rounded-xl bg-neutral-50 p-4 md:col-span-2">
+                  <p className="text-sm font-semibold">상품 이미지 · 선택</p>
+                  {selected === "new" ? (
+                    <p className="mt-1 text-xs text-neutral-500">상품을 먼저 저장하면 이미지를 올릴 수 있어요. 이미지 없이도 저장할 수 있어요.</p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      {draft.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={draft.image_url} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                      ) : <span className="text-xs text-neutral-500">이미지 없이도 저장할 수 있어요.</span>}
+                      <label className="cursor-pointer rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm">
+                        {imgBusy ? "올리는 중…" : draft.image_url ? "이미지 바꾸기" : "이미지 업로드"}
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={imgBusy} onChange={(e) => attach(e.target.files?.[0])} />
+                      </label>
+                      {draft.image_url && <button onClick={detach} disabled={imgBusy} className="text-sm text-neutral-500 underline">이미지 제거</button>}
+                    </div>
+                  )}
+                </div>
                 <div className="md:col-span-2"><Field label="소구점"><input className={inputCls} value={draft.selling_point} onChange={(e) => setD("selling_point", e.target.value)} placeholder="예: 가벼운 휴대성" /></Field></div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">

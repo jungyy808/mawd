@@ -15,6 +15,7 @@ STORE_FIELDS = (
     "sales_channel",
     "region",
     "monthly_budget",
+    "store_url",
 )
 
 # 행사 테이블 추가 컬럼 (방문객용 안내 페이지)
@@ -35,10 +36,12 @@ _EVENT_EXTRA_COLUMNS.update({
 # 상품 원가 (Figma: 준비 수량과 원가 편집)
 _PRODUCT_EXTRA_COLUMNS = {
     "cost": "INTEGER NOT NULL DEFAULT 0",
+    "image_url": "TEXT NOT NULL DEFAULT ''",
 }
 
 # 예전 DB에 없던 컬럼 자동 추가용
 _STORE_EXTRA_COLUMNS = {
+    "store_url": "TEXT NOT NULL DEFAULT ''",
     "intro": "TEXT NOT NULL DEFAULT ''",
     "target_customer": "TEXT NOT NULL DEFAULT ''",
     "sales_channel": "TEXT NOT NULL DEFAULT ''",
@@ -353,7 +356,7 @@ def _delete(table: str, store_id: str, item_id: str) -> None:
 
 # ---------- 상품 ----------
 
-PRODUCT_FIELDS = ("sku", "name", "price", "stock", "url", "selling_point", "cost")
+PRODUCT_FIELDS = ("sku", "name", "price", "stock", "url", "selling_point", "cost", "image_url")
 
 
 def create_product(store_id: str, data: dict) -> str:

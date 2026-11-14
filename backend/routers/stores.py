@@ -47,6 +47,11 @@ def get_me(store: dict = Depends(current_store)):
 
 @router.patch("/me", response_model=StoreOut, summary="브랜드 프로필 수정 (보낸 필드만 변경)")
 def update_me(body: StoreUpdate, store: dict = Depends(current_store)):
+    if body.store_url:
+        u = body.store_url.strip()
+        if not re.match(r"^https://[^\s/]+\.[^\s]+$", u):
+            raise HTTPException(422, {"code": "invalid_store_url", "message": "https:// 로 시작하는 스토어 주소를 넣어 주세요."})
+        body.store_url = u
     db.update_store(store["id"], body.model_dump(exclude_none=True))
     return _out(db.get_store(store["id"]))
 
