@@ -1,3 +1,4 @@
+import json
 import secrets
 import sqlite3
 from contextlib import contextmanager
@@ -227,6 +228,21 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_contents (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                title TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL DEFAULT '',
+                url TEXT NOT NULL DEFAULT '',
+                image_url TEXT NOT NULL DEFAULT '',
+                tags TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         sale_cols = {r[1] for r in conn.execute("PRAGMA table_info(event_sale_items)")}
         if "cost" not in sale_cols:
             conn.execute("ALTER TABLE event_sale_items ADD COLUMN cost INTEGER NOT NULL DEFAULT 0")
@@ -382,7 +398,7 @@ def get_event_public(event_id: str) -> dict | None:
 def delete_event(store_id: str, event_id: str) -> None:
     _delete("events", store_id, event_id)
     with get_conn() as conn:
-        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items", "purchase_orders"):
+        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items", "purchase_orders", "event_contents"):
             conn.execute(f"DELETE FROM {table} WHERE event_id = ?", (event_id,))
 
 
@@ -687,3 +703,32 @@ def find_same_event(store_id: str, name: str, start_date: str | None) -> dict | 
 def set_event_request(store_id: str, event_id: str, request_id: str) -> None:
     with get_conn() as conn:
         conn.execute("UPDATE events SET request_id = ? WHERE id = ? AND store_id = ?", (request_id, event_id, store_id))
+
+
+# ---------- 생성한 항목 (파워링크 문구 · 블로그 · 인스타그램) ----------
+
+def list_contents(event_id: str) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM event_contents WHERE event_id = ? ORDER BY created_at DESC", (event_id,)).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["tags"] = json.loads(d["tags"] or "[]")
+        out.append(d)
+    return out
+
+
+def add_content(event_id: str, data: dict) -> str:
+    cid = f"ct_{secrets.token_hex(4)}"
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO event_contents (id, event_id, kind, title, body, url, image_url, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (cid, event_id, data["kind"], data.get("title", ""), data.get("body", ""), data.get("url", ""),
+             data.get("image_url", "") or "", json.dumps(data.get("tags") or [], ensure_ascii=False), _now()),
+        )
+    return cid
+
+
+def delete_content(event_id: str, content_id: str) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM event_contents WHERE id = ? AND event_id = ?", (content_id, event_id))

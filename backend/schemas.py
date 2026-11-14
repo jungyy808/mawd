@@ -643,3 +643,26 @@ class OrderOut(BaseModel):
 class OrdersOut(BaseModel):
     orders: list[OrderOut]
     stock: list[StockRow]
+
+
+# ---------- 생성한 항목 (MKT-02) ----------
+
+ContentKind = Literal["powerlink", "blog", "instagram"]
+
+
+class ContentItemIn(BaseModel):
+    kind: ContentKind = Field(..., description="powerlink(파워링크 문구) / blog / instagram")
+    title: str = Field("", description="파워링크·블로그 제목")
+    body: str = Field("", description="설명·본문·캡션")
+    url: str = Field("", description="파워링크 연결 URL")
+    image_url: str = Field("", description="대표·피드 이미지")
+    tags: list[str] = Field(default_factory=list)
+
+
+class ContentItemOut(ContentItemIn):
+    id: str
+    created_at: str
+
+
+class ContentItemsOut(BaseModel):
+    items: list[ContentItemOut]

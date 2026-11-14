@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { type EventOut, api, publicOrigin, won } from "@/components/events/api";
 import { Badge, Button, Card, ErrorBox, Field, Spinner, copyText as copyToClipboard, inputCls } from "@/components/events/ui";
 import type { NaverDraft, NaverRegisterOut } from "./types";
+import { saveContent } from "./Generated";
 
 export default function DraftCard({ eventId }: { eventId?: string }) {
   const [events, setEvents] = useState<EventOut[]>([]);
@@ -17,20 +18,28 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
   const [agreed, setAgreed] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [reg, setReg] = useState<NaverRegisterOut | null>(null);
+  const [savedFor, setSavedFor] = useState("");
 
   const register = async () => {
     if (!draft) return;
     setRegistering(true); setError("");
     try {
-      setReg(await api<NaverRegisterOut>("/api/ads/naver/register", {
+      const out = await api<NaverRegisterOut>("/api/ads/naver/register", {
         method: "POST",
         json: {
           request_id: requestId, campaign_name: draft.campaign_name, adgroup_name: draft.adgroup_name,
           keywords: draft.keywords.map(({ keyword, bid }) => ({ keyword, bid })),
           title: draft.title, description: draft.description, daily_budget: draft.daily_budget, landing_url: draft.landing_url,
         },
-      }));
+      });
+      setReg(out);
       setApprove(false);
+      // 신청 완료된 문구만 '생성한 항목'에 남긴다 (같은 초안 재시도는 한 번만)
+      const evId = eventId || form.event_id;
+      if (out.status === "ok" && evId && savedFor !== requestId) {
+        setSavedFor(requestId);
+        saveContent(evId, { kind: "powerlink", title: draft.title, body: draft.description, url: draft.landing_url, image_url: "", tags: draft.keywords.map((k) => k.keyword) }).catch(() => {});
+      }
     } catch (e) { setError((e as Error).message); }
     finally { setRegistering(false); }
   };
