@@ -10,9 +10,9 @@ export default function ServiceMenu({ showNav = true }: { showNav?: boolean }) {
       <div className="mx-auto flex h-[54px] w-full max-w-[1180px] items-center gap-3 p-4">
         <Link
           href="/home"
-          className="shrink-0 text-base leading-normal font-bold whitespace-nowrap text-ink"
+          className="shrink-0 text-lg leading-normal font-bold whitespace-nowrap text-[#6d53f1]"
         >
-          AI 마케터
+          BOOTHY
         </Link>
         <div className="flex-1" />
         {showNav && (

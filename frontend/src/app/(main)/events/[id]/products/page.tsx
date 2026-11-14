@@ -59,14 +59,11 @@ export default function EventProductsPage() {
         setInitialBrandName(storeRes.store.name);
       }
 
-      if (e.products.length > 0) {
-        setQty(Object.fromEntries(e.products.map((p) => [p.product_id, p.planned_qty])));
-        setPicked(Object.fromEntries(e.products.map((p) => [p.product_id, true])));
-      } else {
-        // 행사에 아직 연결된 상품이 없으면 브랜드의 기본 상품들을 기본 선택 상태로 보여준다
-        setQty(Object.fromEntries(ps.map((p) => [p.id, p.stock || 30])));
-        setPicked(Object.fromEntries(ps.map((p) => [p.id, true])));
-      }
+      // 상품은 브랜드 공용이라 여기서 전부 선택해 두면 이 행사에도 그대로 저장돼
+      // 다른 행사에서 만든 상품까지 등록된다. 이 행사에 연결된 상품만 선택 상태로 둔다.
+      const savedQty = Object.fromEntries(e.products.map((p) => [p.product_id, p.planned_qty]));
+      setQty(Object.fromEntries(ps.map((p) => [p.id, savedQty[p.id] ?? p.stock ?? 30])));
+      setPicked(Object.fromEntries(e.products.map((p) => [p.product_id, true])));
     } catch (err) {
       setError((err as Error).message);
     }
@@ -184,6 +181,20 @@ export default function EventProductsPage() {
     }
   };
 
+  // 이미 만들어 둔 상품을 이 행사에만 추가한다 (다른 행사는 그대로)
+  const addExistingProduct = async (p: Product) => {
+    const nextPicked = { ...picked, [p.id]: true };
+    const nextQty = { ...qty, [p.id]: qty[p.id] ?? p.stock ?? 30 };
+    setPicked(nextPicked);
+    setQty(nextQty);
+    try {
+      setError("");
+      await persistEventProducts(nextPicked, nextQty);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   const saveAll = async () => {
     setSaving(true);
     setError("");
@@ -201,6 +212,7 @@ export default function EventProductsPage() {
   if (!ev || !products) return <Spinner text="불러오는 중" />;
 
   const visibleProducts = products.filter((p) => picked[p.id]);
+  const otherProducts = products.filter((p) => !picked[p.id]);
 
   return (
     <div className="w-full max-w-[1093px] pb-10 md:ml-[33px] md:mt-5">
@@ -480,6 +492,27 @@ export default function EventProductsPage() {
           </div>
         )}
       </div>
+
+      {otherProducts.length > 0 && (
+        <section className="mt-8">
+          <h3 className="text-base font-semibold text-black">내 상품에서 추가</h3>
+          <p className="mt-1 text-sm text-[#6e6d79]">이미 만들어 둔 상품이에요. 누르면 이번 행사에만 추가됩니다.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {otherProducts.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => addExistingProduct(p)}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-[#6d53f1] hover:text-[#6d53f1]"
+              >
+                <span>{p.name}</span>
+                <span className="text-xs text-[#6e6d79]">{(p.price ?? 0).toLocaleString("ko-KR")}원</span>
+                <span aria-hidden="true" className="text-base leading-none">＋</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="mt-8 flex justify-end">
         <button
