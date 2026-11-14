@@ -1,6 +1,6 @@
 "use client";
 // Figma: 홈 (node 20:3476). 행사 이름 + D-day, 보라 상자(지금 할 일 · 다가오는 마감), 상품별 카드.
-// 데이터는 GET /api/home (지금은 더미, is_sample: true).
+// 데이터는 GET /api/home?event_id= (사이드바에서 고른 행사의 체크리스트·마감·상품).
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, dLabel } from "@/components/events/api";
@@ -17,7 +17,7 @@ interface HomeOut {
   event: { id: string; name: string; start_date: string | null; end_date: string | null; d_day: number | null } | null;
   todos: { id: string; title: string; done: boolean }[];
   deadlines: { id: string; title: string; due_date: string | null; d_day: number | null }[];
-  products: { id: string; name: string; image_url: string | null; cards: { id: string }[] }[];
+  products: { id: string; name: string; image_url: string | null; cards: { id: string; label?: string }[] }[];
   is_sample: boolean;
 }
 
@@ -36,9 +36,18 @@ export default function HomePage() {
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [reload, setReload] = useState(0);
 
+  // 사이드바에서 행사를 바꾸면 다시 불러온다 (SideNav가 "mawd:event-picked" 이벤트를 보냄)
+  useEffect(() => {
+    const onPick = () => setReload((n) => n + 1);
+    window.addEventListener("mawd:event-picked", onPick);
+    return () => window.removeEventListener("mawd:event-picked", onPick);
+  }, []);
+
   useEffect(() => {
     let alive = true;
-    api<HomeOut>("/api/home")
+    let picked: string | null = null;
+    try { picked = localStorage.getItem("mawd_current_event"); } catch {}
+    api<HomeOut>(`/api/home${picked ? `?event_id=${encodeURIComponent(picked)}` : ""}`)
       .then((h) => {
         if (!alive) return;
         setHome(h);
@@ -64,7 +73,9 @@ export default function HomePage() {
     // 본문 여백(26px)에 더해 Figma 위치(사이드 메뉴에서 51px, 위에서 46px)에 맞춘다.
     <div className="sm:px-[25px] sm:pt-5">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:pl-2">
-        <h1 className="text-[32px] leading-normal font-bold text-black">{event ? event.name : "홈"}</h1>
+        <h1 className="text-[32px] leading-normal font-bold text-black">
+          {event ? <Link href={`/events/${event.id}`} className="hover:underline">{event.name}</Link> : "홈"}
+        </h1>
         {event && event.d_day !== null && (
           <span className="rounded-[44px] bg-[#6d53f1] px-5 py-[5px] text-2xl leading-normal font-bold whitespace-nowrap text-white">
             {dLabel(event.d_day)}
@@ -85,7 +96,10 @@ export default function HomePage() {
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl leading-normal font-bold">지금 할 일</h2>
           {todos.length === 0 ? (
-            <p className="mt-[33px] text-base font-medium opacity-80">지금 할 일이 없어요.</p>
+            <p className="mt-[33px] text-base font-medium opacity-80">
+              지금 할 일이 없어요.{" "}
+              {event && <Link href={`/events/${event.id}/schedule`} className="underline">AI 체크리스트 만들기 ↗</Link>}
+            </p>
           ) : (
             <ul className="mt-[33px] flex flex-col gap-5">
               {todos.map((t) => (
@@ -94,7 +108,12 @@ export default function HomePage() {
                     type="button"
                     role="checkbox"
                     aria-checked={!!done[t.id]}
-                    onClick={() => setDone((d) => ({ ...d, [t.id]: !d[t.id] }))}
+                    onClick={() => {
+                      const next = !done[t.id];
+                      setDone((d) => ({ ...d, [t.id]: next }));
+                      // 체크하면 실제 체크리스트에도 완료로 저장
+                      if (event) api(`/api/events/${event.id}/checklist/${t.id}`, { method: "PATCH", json: { status: next ? "done" : "todo" } }).catch(() => {});
+                    }}
                     className="flex items-center gap-[13px] text-left text-base leading-normal font-medium"
                   >
                     {/* 흰 동그라미는 그대로 두고, 체크하면 안에 보라색 작은 원을 띄운다 */}
@@ -134,6 +153,12 @@ export default function HomePage() {
         </div>
       </section>
 
+      {event && products.length === 0 && (
+        <p className="mt-11 text-sm text-sub">
+          판매 상품이 아직 없어요.{" "}
+          <Link href={`/events/${event.id}/products`} className="font-medium text-[#6d53f1] underline">판매 상품 추가</Link>
+        </p>
+      )}
       <section className="mt-11 grid grid-cols-2 gap-x-[50px] gap-y-10 lg:grid-cols-4">
         {products.map((p, i) => {
           const col = COLUMNS[i % COLUMNS.length];
@@ -159,6 +184,7 @@ export default function HomePage() {
                     className={`relative rounded-[15px] ${col.bg}`}
                     style={{ height: col.heights[n % col.heights.length] }}
                   >
+                    {c.label && <p className="px-4 pt-4 text-sm font-semibold text-black/80">{c.label}</p>}
                     {bar}
                   </div>
                 ))}

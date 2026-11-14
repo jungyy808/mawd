@@ -108,34 +108,62 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
 
       {busy && <Spinner text="AI가 키워드와 광고 문구를 만드는 중" />}
       {draft && !busy && (
-        <div className="mt-5 space-y-4 rounded-lg border border-neutral-200 p-4">
-          {draft.is_fallback && <Badge tone="amber">AI 연결이 불안정해 기본 초안을 보여드려요</Badge>}
-          <div className="rounded-lg bg-neutral-50 p-4">
-            <p className="text-xs text-neutral-500">검색 결과 미리보기</p>
-            <p className="mt-1 font-semibold text-sky-800">{draft.title}</p>
-            <p className="text-xs text-emerald-700">{draft.landing_url || "연결 URL 미입력"}</p>
+        <div className="mt-6 space-y-5 rounded-2xl border border-[#6d53f1]/20 bg-gradient-to-b from-[#6d53f1]/[0.04] to-white p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[#6d53f1] px-3 py-1 text-xs font-semibold text-white">AI 초안</span>
+            <span className="text-sm text-neutral-500">네이버 파워링크 · 검색 결과에 이렇게 보여요</span>
+            {draft.is_fallback && <Badge tone="amber">AI 연결이 불안정해 기본 초안이에요</Badge>}
+          </div>
+
+          {/* 네이버 검색 결과 미리보기 */}
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 border-b border-neutral-100 pb-3">
+              <span className="flex h-6 w-6 items-center justify-center rounded bg-[#03c75a] text-xs font-black text-white">N</span>
+              <span className="flex-1 truncate rounded-full border-2 border-[#03c75a] px-3 py-1 text-sm text-neutral-700">{draft.keywords[0]?.keyword ?? draft.title}</span>
+            </div>
+            <p className="text-xs text-neutral-500">파워링크 · <span className="text-neutral-400">광고</span></p>
+            <p className="mt-1 text-lg font-semibold text-[#0b2bb5] hover:underline">{draft.title}</p>
+            <p className="truncate text-sm text-[#03a94e]">{draft.landing_url || "연결 URL 미입력"}</p>
             <p className="mt-1 text-sm text-neutral-700">{draft.description}</p>
-            <p className="mt-2 text-xs text-neutral-500">제목 {draft.title.length}/15자 · 설명 {draft.description.length}/45자</p>
+            <div className="mt-3 flex gap-3 text-xs">
+              <span className={draft.title.length > 15 ? "text-red-600" : "text-neutral-400"}>제목 {draft.title.length}/15</span>
+              <span className={draft.description.length > 45 ? "text-red-600" : "text-neutral-400"}>설명 {draft.description.length}/45</span>
+            </div>
           </div>
-          <div className="grid gap-2 text-sm md:grid-cols-2">
-            <p><span className="text-neutral-500">캠페인</span> {draft.campaign_name}</p>
-            <p><span className="text-neutral-500">광고그룹</span> {draft.adgroup_name}</p>
-            <p><span className="text-neutral-500">일 예산</span> {won(draft.daily_budget)}</p>
-            {draft.region_suggestion && <p><span className="text-neutral-500">지역</span> {draft.region_suggestion}</p>}
+
+          {/* 캠페인 구성 */}
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["캠페인", draft.campaign_name],
+              ["광고그룹", draft.adgroup_name],
+              ["일 예산", won(draft.daily_budget)],
+              ["추천 지역", draft.region_suggestion || "전국"],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-lg bg-white p-3 ring-1 ring-neutral-200">
+                <p className="text-xs text-neutral-500">{k}</p>
+                <p className="mt-1 text-sm font-semibold break-keep text-neutral-900">{v}</p>
+              </div>
+            ))}
           </div>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-neutral-500"><tr><th className="py-1">키워드</th><th className="text-right">입찰가</th><th className="text-right">월간 검색수</th></tr></thead>
-            <tbody>
+
+          {/* 키워드 */}
+          <div>
+            <p className="mb-2 text-sm font-semibold">키워드 {draft.keywords.length}개 <span className="font-normal text-neutral-500">· 클릭당 입찰가</span></p>
+            <div className="flex flex-wrap gap-2">
               {draft.keywords.map((k) => (
-                <tr key={k.keyword} className="border-t border-neutral-100">
-                  <td className="py-1.5">{k.keyword}</td>
-                  <td className="text-right tabular-nums">{won(k.bid)}</td>
-                  <td className="text-right tabular-nums text-neutral-500">{k.monthly_search?.toLocaleString("ko-KR") ?? "-"}</td>
-                </tr>
+                <span key={k.keyword} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm ring-1 ring-[#6d53f1]/30">
+                  <span className="font-medium">{k.keyword}</span>
+                  <span className="tabular-nums text-[#6d53f1]">{won(k.bid)}</span>
+                  {k.monthly_search != null && <span className="text-xs text-neutral-500">월 {k.monthly_search.toLocaleString("ko-KR")}회</span>}
+                </span>
               ))}
-            </tbody>
-          </table>
-          {draft.warnings.length > 0 && <ul className="space-y-1 text-xs text-amber-700">{draft.warnings.map((w) => <li key={w}>• {w}</li>)}</ul>}
+            </div>
+            {draft.keywords.every((k) => k.monthly_search == null) && (
+              <p className="mt-2 text-xs text-neutral-500">네이버 계정을 연결하면 키워드별 실제 월간 검색수가 함께 보여요.</p>
+            )}
+          </div>
+
+          {draft.warnings.length > 0 && <ul className="space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">{draft.warnings.map((w) => <li key={w}>• {w}</li>)}</ul>}
           <div className="flex flex-wrap gap-2">
             {!reg && <Button onClick={() => { setApprove(true); setAgreed(false); }} disabled={approve}>네이버에 중지 상태로 등록</Button>}
             <Button variant="secondary" onClick={copyText}>{copied ? "복사됨 ✓" : "초안 복사"}</Button>

@@ -415,6 +415,7 @@ class HomeDeadline(BaseModel):
 
 class HomeProductCard(BaseModel):
     id: str
+    label: str = ""  # 카드에 보여줄 한 줄 (예: 준비 30개 · 남은 27개)
 
 
 class HomeProduct(BaseModel):

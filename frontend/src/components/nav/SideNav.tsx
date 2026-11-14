@@ -76,6 +76,7 @@ export default function SideNav() {
   const choose = (id: string) => {
     savePick(id);
     setPicked(id);
+    window.dispatchEvent(new Event("mawd:event-picked")); // 홈(행사 개요)이 새 행사로 다시 불러오게
     if (tab !== null) router.push(tab ? `/events/${id}/${tab === "products" ? "stock" : tab}` : `/events/${id}`);
   };
 

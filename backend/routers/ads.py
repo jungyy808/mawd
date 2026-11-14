@@ -55,6 +55,16 @@ def _naver_channel(store_id: str) -> AdChannel:
     if not conn:
         return AdChannel(platform="naver", name="네이버 검색광고", product="파워링크", mode=mode, status="disconnected",
                          message="광고 계정 번호(CUSTOMER_ID)를 입력해 연결하세요.")
+    # 키 없이 연결했다가 나중에 키를 넣은 경우: 실제로 다시 확인해서 안내 문구를 바꾼다
+    if naver.enabled() and "샘플" in (conn["message"] or ""):
+        try:
+            naver.list_campaigns(conn["customer_id"])
+            db.save_ad_connection(store_id, "naver", conn["customer_id"], "connected", "캠페인·성과 조회 가능")
+        except naver.NaverError as e:
+            log.warning("네이버 재확인 실패: %s", e)
+            db.save_ad_connection(store_id, "naver", conn["customer_id"], "permission_needed",
+                                  "권한 확인 필요 · 계정 번호와 서비스 계정 초대 상태를 확인한 뒤 다시 시도하세요.")
+        conn = db.get_ad_connection(store_id, "naver")
     return AdChannel(platform="naver", name="네이버 검색광고", product="파워링크", mode=mode, status=conn["status"],
                      customer_id_tail=_tail(conn["customer_id"]), checked_at=conn["checked_at"], message=conn["message"])
 
