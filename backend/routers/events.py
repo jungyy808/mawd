@@ -95,15 +95,33 @@ IMPORT_LABELS = [
 ]
 
 
+def _check_url(url: str) -> str:
+    """공고 링크 검사: http(s)이고 도메인이 있는 공개 주소만 (사설망·localhost 차단)."""
+    import ipaddress
+    u = urllib.parse.urlparse(url.strip())
+    host = (u.hostname or "").lower()
+    if u.scheme not in ("http", "https") or "." not in host:
+        raise HTTPException(422, {"code": "invalid_url", "message": "올바른 링크인지 확인해 주세요. (https://로 시작하는 공고 주소)"})
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            raise HTTPException(422, {"code": "invalid_url", "message": "공개된 공고 주소만 가져올 수 있어요."})
+    except ValueError:
+        pass
+    if host == "localhost" or host.endswith(".local"):
+        raise HTTPException(422, {"code": "invalid_url", "message": "공개된 공고 주소만 가져올 수 있어요."})
+    return url.strip()
+
+
 def _search_candidates(url: str, query: str) -> list[dict]:
-    """링크와 검색어로 각각 검색해서 중복 없이 합친다."""
+    """링크가 있으면 링크로만, 없으면 행사명(키워드)으로만 검색한다."""
+    q = _check_url(url) if url else (f"{query} 참가 모집 공고" if query else "")
     results: list[dict] = []
     seen: set[str] = set()
-    for q in [x for x in (url, f"{query} 참가 모집 공고" if query else "") if x]:
-        for r in liner.web_search(q, max_results=8):
-            if r["url"] and r["url"] not in seen:
-                seen.add(r["url"])
-                results.append(r)
+    for r in liner.web_search(q, max_results=10 if not url else 8):
+        if r["url"] and r["url"] not in seen:
+            seen.add(r["url"])
+            results.append(r)
     return results
 
 

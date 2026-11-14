@@ -28,11 +28,27 @@ export default function EventNewPage() {
   const [cands, setCands] = useState<ImportCandidate[]>([]);
   const [picked, setPicked] = useState<string>("");
 
+  // 링크 칸: 비었거나 올바른 http(s) 주소여야 함
+  const urlErr = (() => {
+    const v = url.trim();
+    if (!v) return "";
+    try {
+      const u = new URL(v);
+      if (!/^https?:$/.test(u.protocol) || !u.hostname.includes(".")) throw new Error();
+      return "";
+    } catch {
+      return "올바른 링크인지 확인해 주세요. https://로 시작하는 공고 주소를 붙여넣거나, 행사명은 위 칸에 입력하세요.";
+    }
+  })();
+  const mode = url.trim() ? "링크" : "행사명";
+
   const search = async () => {
+    if (urlErr) return;
     setStep("searching");
     setFailed("");
     try {
-      const r = await api<ImportSearchOut>("/api/events/import/search", { method: "POST", json: { url, query } });
+      // 링크가 있으면 링크로만, 없으면 행사명으로만 찾는다
+      const r = await api<ImportSearchOut>("/api/events/import/search", { method: "POST", json: url.trim() ? { url: url.trim(), query: "" } : { url: "", query } });
       if (r.status === "failed" || r.candidates.length === 0) {
         setFailed(r.message);
         setStep("failed");
@@ -98,12 +114,15 @@ export default function EventNewPage() {
           <div className="space-y-4">
             <Field label="행사명" hint="예: 서울일러스트레이션페어, 연남동 플리마켓 셀러 모집">
               <input className={inputCls} placeholder="예: 연남 겨울 팝업 참가자 모집" value={query} onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (url.trim() || query.trim()) && search()} />
+                onKeyDown={(e) => e.key === "Enter" && !urlErr && (url.trim() || query.trim()) && search()} />
             </Field>
-            <Field label="모집·참가 안내 링크 (선택)" hint="링크가 있으면 더 정확하게 찾아요">
-              <input className={inputCls} placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+            <Field label="또는 모집·참가 안내 링크" hint="링크를 넣으면 행사명 대신 링크로만 찾아요">
+              <input className={`${inputCls} ${urlErr ? "!border-red-400" : ""}`} placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
             </Field>
-            <Button onClick={search} disabled={!url.trim() && !query.trim()} className="h-11 w-full">공고 찾기</Button>
+            {urlErr && <p className="-mt-2 text-xs text-red-600">{urlErr}</p>}
+            <Button onClick={search} disabled={!!urlErr || (!url.trim() && !query.trim())} className="h-11 w-full">
+              {mode === "링크" ? "링크로" : "행사명으로"} 공고 찾기
+            </Button>
           </div>
         </Card>
       )}
