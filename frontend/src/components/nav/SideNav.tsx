@@ -16,31 +16,59 @@ import customersIcon from "@/assets/nav/customers.svg";
 import reportIcon from "@/assets/nav/report.svg";
 import chevronIcon from "@/assets/nav/chevron.svg";
 
-// href가 없는 메뉴는 아직 화면이 없는 것 (모양만 보여주고 눌리지 않음).
-const ITEMS: { label: string; icon: { src: string }; href?: string }[] = [
+// seg가 있는 메뉴는 "지금 보는 행사"의 탭으로 연결된다 (/events/{id}/{seg}).
+// 행사가 하나도 없으면 행사 생성으로 보낸다.
+const ITEMS: { label: string; icon: { src: string }; href?: string; seg?: string; also?: string[] }[] = [
   { label: "홈", icon: homeIcon, href: "/home" },
   { label: "내 행사", icon: eventsIcon, href: "/events" },
-  { label: "예산 손익", icon: budgetIcon },
-  { label: "상품 관리", icon: productsIcon },
-  { label: "운영", icon: operationsIcon },
-  { label: "홍보", icon: promoIcon, href: "/ads" },
-  { label: "고객", icon: customersIcon },
-  { label: "리포트", icon: reportIcon },
+  { label: "예산 손익", icon: budgetIcon, seg: "budget" },
+  { label: "상품 관리", icon: productsIcon, seg: "stock", also: ["products"] },
+  { label: "운영", icon: operationsIcon, seg: "schedule" },
+  { label: "홍보", icon: promoIcon, seg: "promo" },
+  { label: "고객", icon: customersIcon, seg: "customers" },
+  { label: "리포트", icon: reportIcon, seg: "report" },
 ];
 
-const isActive = (pathname: string, href?: string) => !!href && (pathname === href || pathname.startsWith(`${href}/`));
+// 지금 보는 행사: 행사 화면이면 그 행사, 아니면 끝나지 않은 첫 행사.
+function pickCurrent(events: EventOut[] | null, pathname: string): EventOut | undefined {
+  if (!events) return undefined;
+  return events.find((e) => pathname.startsWith(`/events/${e.id}`)) ?? events.find((e) => e.status !== "done") ?? events[0];
+}
 
 export default function SideNav() {
   const pathname = usePathname() ?? "";
+  const [events, setEvents] = useState<EventOut[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api<EventOut[]>("/api/events")
+      .then((list) => alive && setEvents(list))
+      .catch(() => alive && setEvents([]));
+    return () => {
+      alive = false;
+    };
+    // 새 행사를 만들거나 지웠을 때 목록이 바뀌도록 경로가 바뀔 때마다 다시 불러온다.
+  }, [pathname]);
+
+  const current = pickCurrent(events, pathname);
+  const base = current ? `/events/${current.id}` : "";
+  // 행사 안에서 지금 보고 있는 탭 (예: /events/ev_1/budget → "budget", 개요면 "")
+  const tab = base && pathname.startsWith(base) ? (pathname.slice(base.length).split("/")[1] ?? "") : null;
+
   return (
     <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 overflow-y-auto bg-white pt-[34px] pb-6 md:block">
       <Link href="/home" className="ml-[33px] block w-fit text-2xl leading-normal font-bold text-[#6d53f1]">
         BOOTHY
       </Link>
-      <EventSwitcher pathname={pathname} />
+      <EventSwitcher events={events} current={current} />
       <nav aria-label="서비스 메뉴" className="mt-[27px] mr-[17px] ml-[21px] flex flex-col gap-[27px]">
-        {ITEMS.map(({ label, icon, href }) => {
-          const active = isActive(pathname, href);
+        {ITEMS.map(({ label, icon, href: fixed, seg, also }) => {
+          const href = seg ? (current ? `${base}/${seg}` : events ? "/events/new" : undefined) : fixed;
+          const active = seg
+            ? tab === seg || (!!also && tab !== null && also.includes(tab))
+            : fixed === "/events"
+              ? pathname === "/events" || pathname.startsWith("/events/new") || tab === ""
+              : !!fixed && (pathname === fixed || pathname.startsWith(`${fixed}/`));
           const cls = `flex h-11 items-center rounded-[7px] pl-3 text-base leading-normal ${
             active ? "bg-[#6d53f1] font-semibold text-white" : "font-medium text-black"
           } ${href && !active ? "hover:bg-[#6d53f1]/10" : ""}`;
@@ -59,7 +87,7 @@ export default function SideNav() {
               {inner}
             </Link>
           ) : (
-            <span key={label} aria-disabled="true" title="준비 중" className={`${cls} cursor-default`}>
+            <span key={label} aria-disabled="true" className={`${cls} cursor-default`}>
               {inner}
             </span>
           );
@@ -70,25 +98,10 @@ export default function SideNav() {
 }
 
 // 행사 선택 상자: 맨 위가 지금 보는 행사, 아래는 다른 행사. 화살표로 접고 편다.
-function EventSwitcher({ pathname }: { pathname: string }) {
-  const [events, setEvents] = useState<EventOut[] | null>(null);
+function EventSwitcher({ events, current }: { events: EventOut[] | null; current: EventOut | undefined }) {
   const [open, setOpen] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
-    api<EventOut[]>("/api/events")
-      .then((list) => alive && setEvents(list))
-      .catch(() => alive && setEvents([]));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   if (!events) return <div className="mt-[27px] mr-[17px] ml-[21px] h-[51px] rounded-[7px] bg-[#6d53f1]/10" />;
-
-  // 행사 상세(/events/ev_xxx)를 보고 있으면 그 행사, 아니면 끝나지 않은 첫 행사.
-  const current =
-    events.find((e) => pathname.startsWith(`/events/${e.id}`)) ?? events.find((e) => e.status !== "done") ?? events[0];
   const others = events.filter((e) => e.id !== current?.id);
 
   return (
