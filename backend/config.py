@@ -19,6 +19,11 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 VAPI_API_KEY = os.getenv("VAPI_API_KEY", "")  # Private API Key
 VAPI_ASSISTANT_ID = os.getenv("VAPI_ASSISTANT_ID", "")
 
+# Liner 검색 API 키. 비우면 OPENAI_API_KEY(Liner 키)를 같이 씀
+LINER_API_KEY = os.getenv("LINER_API_KEY", "") or (
+    os.getenv("OPENAI_API_KEY", "") if "liner.com" in OPENAI_BASE_URL else ""
+)
+
 # 배포 주소 (예: https://mawd-api.onrender.com). 비우면 요청 주소 기준으로 이미지 URL 생성
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 

@@ -23,6 +23,10 @@ LLM 키가 없거나 호출이 실패해도 `/api/content`는 예시 응답(`is_
 | `GET /api/stores/me` | 내 브랜드 정보. 헤더 `X-Store-Id` |
 | `PATCH /api/stores/me` | 브랜드 프로필 수정 (보낸 필드만) |
 | `POST /api/content` | multipart `description`, `channel`(all/blog/instagram), `goal_keyword`, `image`(선택) + 헤더 `X-Store-Id` → `{instagram{caption,hashtags,shot_list}, blog{title,body,tags,cta}, image_url, is_fallback}` |
+| `GET/POST /api/products`, `GET/PATCH/DELETE /api/products/{id}` | 상품 (sku, name, price, stock, url, selling_point) |
+| `POST /api/events/import` | `{url?, query?}` → Liner 검색 → AI가 행사 정보표로 정리 (저장 안 함) → `{status, message, fields[], draft, sources[]}` |
+| `GET/POST /api/events`, `GET/PATCH/DELETE /api/events/{id}` | 행사 (draft를 그대로 POST하면 생성). 응답에 d_day, products[] 포함 |
+| `PUT /api/events/{id}/products` | `[{product_id, planned_qty}]` 판매 상품·수량 통째로 교체 → shortage(부족 수량) 계산 |
 | `GET /uploads/{파일}` | 업로드 이미지 공개 URL |
 
 에러 형식: `{"error": {"code": "...", "message": "..."}}`

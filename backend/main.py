@@ -10,9 +10,9 @@ from fastapi.staticfiles import StaticFiles
 
 import db
 from config import UPLOAD_DIR
-from routers import content, stores
+from routers import content, events, products, stores
 
-app = FastAPI(title="MAWD API", version="0.1.0")
+app = FastAPI(title="MAWD API", version="0.2.0")
 
 # Flutter Web은 주소가 달라서 CORS 필수. 커스텀 헤더 X-Store-Id 때문에 헤더도 전부 허용.
 app.add_middleware(
@@ -51,6 +51,8 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.include_router(stores.router)
 app.include_router(content.router)
+app.include_router(products.router)
+app.include_router(events.router)
 
 
 @app.get("/health")

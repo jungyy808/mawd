@@ -54,3 +54,28 @@ def content_user_prompt(
         + f"- 사장님 설명: {description}\n"
         + f"- 사진: {'첨부됨 (사진 내용을 반영하세요)' if has_image else '없음'}\n"
     )
+
+
+EVENT_IMPORT_SYSTEM = """당신은 팝업스토어·플리마켓·부스 행사의 모집 공고를 읽고 행사 정보표를 채우는 도우미입니다.
+웹 검색 결과(제목·URL·요약·날짜)만 근거로 행사 정보를 추출합니다.
+
+규칙:
+- 검색 결과에 없는 값은 절대 추측하지 말고 null로 둡니다.
+- 여러 행사가 섞여 있으면 사용자가 준 링크·검색어와 가장 일치하는 행사 하나만 고릅니다.
+- 날짜는 YYYY-MM-DD, 마감은 "YYYY-MM-DD HH:MM" 또는 "YYYY-MM-DD", 시간대는 "11:00–19:00" 형식.
+- 연도가 없으면 기준 연도를 씁니다.
+- type은 popup(팝업스토어) / market(마켓·플리마켓) / booth(부스·박람회) 중 하나.
+- expected_visitors는 숫자만 (언급 없으면 null).
+- used_urls에는 실제로 근거로 쓴 검색 결과 URL만 넣습니다.
+
+반드시 아래 JSON 하나만 출력하세요. 설명이나 코드블록 표시 없이.
+{"name": null, "type": null, "start_date": null, "end_date": null, "location": null, "hours": null,
+ "apply_deadline": null, "load_in_time": null, "fee": null, "booth_size": null, "expected_visitors": null,
+ "used_urls": []}"""
+
+
+def event_import_user_prompt(url: str, query: str, results: list[dict], year: int) -> str:
+    lines = [f"기준 연도: {year}", f"사용자가 준 링크: {url or '없음'}", f"사용자가 준 검색어: {query or '없음'}", "", "검색 결과:"]
+    for i, r in enumerate(results, 1):
+        lines.append(f"[{i}] {r['title']}\nURL: {r['url']}\n날짜: {r['date']}\n요약: {r['description']}\n")
+    return "\n".join(lines)
