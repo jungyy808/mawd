@@ -390,44 +390,45 @@ class PublicEventOut(BaseModel):
     chat_plugin_key: str
 
 
-# ---------- 홈 (Figma: S06 홈대시보드) ----------
+# ---------- 홈 (Figma: 홈 = 지금 할 일 · 다가오는 마감 · 상품별 카드) ----------
 
 class HomeEvent(BaseModel):
     id: str
     name: str
     start_date: str | None
     end_date: str | None
-    booth_no: str
     d_day: int | None
-    progress: float  # 전체 준비 진행률 0~1
-    status: EventStatus
 
 
 class HomeTodo(BaseModel):
     id: str
     title: str
-    due_date: str | None
     done: bool = False
 
 
-class HomeCardRow(BaseModel):
-    label: str
-    value: str
-
-
-class HomeCard(BaseModel):
-    key: str  # orders | promo | ai_inbox | deadlines | budget | onsite
+class HomeDeadline(BaseModel):
+    id: str
     title: str
-    headline: str
-    rows: list[HomeCardRow]
-    href: str
+    due_date: str | None
+    d_day: int | None
+
+
+class HomeProductCard(BaseModel):
+    id: str
+
+
+class HomeProduct(BaseModel):
+    id: str
+    name: str
+    image_url: str | None = None
+    cards: list[HomeProductCard]  # 상품 아래 카드 (Figma에 내용이 아직 없어 id만)
 
 
 class HomeOut(BaseModel):
     event: HomeEvent | None
-    todo_total: int
     todos: list[HomeTodo]
-    cards: list[HomeCard]
+    deadlines: list[HomeDeadline]
+    products: list[HomeProduct]
     is_sample: bool = False
 
 

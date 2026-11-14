@@ -20,8 +20,8 @@ import chevronIcon from "@/assets/nav/chevron.svg";
 // seg가 있는 메뉴는 "지금 보는 행사"의 탭으로 연결된다 (/events/{id}/{seg}).
 // 행사가 하나도 없으면 행사 생성으로 보낸다.
 const ITEMS: { label: string; icon: { src: string }; href?: string; seg?: string; also?: string[] }[] = [
-  { label: "홈", icon: homeIcon, href: "/home" },
   { label: "내 행사", icon: eventsIcon, href: "/events" },
+  { label: "행사 개요", icon: homeIcon, href: "/home" },
   { label: "예산 손익", icon: budgetIcon, seg: "budget" },
   { label: "상품 관리", icon: productsIcon, seg: "stock", also: ["products"] },
   { label: "운영", icon: operationsIcon, seg: "schedule" },

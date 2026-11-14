@@ -1,62 +1,39 @@
 "use client";
-// Figma: S06 홈대시보드 (행사 홈). 데이터는 GET /api/home (지금은 더미, is_sample: true).
+// Figma: 홈 (node 20:3476). 행사 이름 + D-day, 보라 상자(지금 할 일 · 다가오는 마감), 상품별 카드.
+// 데이터는 GET /api/home (지금은 더미, is_sample: true).
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, type EventStatus, STATUS_LABEL, dLabel } from "@/components/events/api";
+import { api, dLabel } from "@/components/events/api";
 import { ErrorBox, Spinner } from "@/components/events/ui";
+// Figma에서 받은 원본 (src/assets/home)
+import dividerLine from "@/assets/home/divider.svg";
+import lineBlue from "@/assets/home/line-blue.svg";
+import lineGreen from "@/assets/home/line-green.svg";
+import lineOrange from "@/assets/home/line-orange.svg";
+import linePink from "@/assets/home/line-pink.svg";
+import todoCircle from "@/assets/home/todo-circle.svg";
 
-interface HomeEvent {
-  id: string;
-  name: string;
-  start_date: string | null;
-  end_date: string | null;
-  booth_no: string;
-  d_day: number | null;
-  progress: number; // 0~1
-  status: EventStatus;
-}
-interface HomeTodo {
-  id: string;
-  title: string;
-  due_date: string | null;
-  done: boolean;
-}
-interface HomeCard {
-  key: string;
-  title: string;
-  headline: string;
-  rows: { label: string; value: string }[];
-  href: string;
-}
 interface HomeOut {
-  event: HomeEvent | null;
-  todo_total: number;
-  todos: HomeTodo[];
-  cards: HomeCard[];
+  event: { id: string; name: string; start_date: string | null; end_date: string | null; d_day: number | null } | null;
+  todos: { id: string; title: string; done: boolean }[];
+  deadlines: { id: string; title: string; due_date: string | null; d_day: number | null }[];
+  products: { id: string; name: string; image_url: string | null; cards: { id: string }[] }[];
   is_sample: boolean;
 }
 
-// "2026-12-20" → "12/20"
-const md = (d: string | null) => (d ? d.slice(5, 10).replace("-", "/") : "");
-
-// "12/20~21 · B-17"
-function eventMeta(e: HomeEvent) {
-  let range = "날짜 미정";
-  if (e.start_date) {
-    range = md(e.start_date);
-    if (e.end_date && e.end_date !== e.start_date) {
-      const sameMonth = e.end_date.slice(0, 7) === e.start_date.slice(0, 7);
-      range += `~${sameMonth ? e.end_date.slice(8, 10) : md(e.end_date)}`;
-    }
-  }
-  return e.booth_no ? `${range} · ${e.booth_no}` : range;
-}
+// 상품 열 색 (Figma 순서: 연두 · 분홍 · 주황 · 파랑). 상품이 4개를 넘으면 처음부터 다시 쓴다.
+// heights: 상품 사진 카드 아래 빈 카드들의 높이. Figma에 카드 내용이 아직 없어 높이만 따라 했다.
+const COLUMNS = [
+  { bg: "bg-[#cffa79]", line: lineGreen, heights: [92, 127] },
+  { bg: "bg-[#ffcdee]", line: linePink, heights: [125, 92] },
+  { bg: "bg-[#f7ac88]", line: lineOrange, heights: [149, 67] },
+  { bg: "bg-[#bac7eb]", line: lineBlue, heights: [110, 127] },
+];
 
 export default function HomePage() {
   const [home, setHome] = useState<HomeOut | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState<Record<string, boolean>>({});
-
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -81,177 +58,115 @@ export default function HomePage() {
   if (error) return <ErrorBox message={error} onRetry={retry} />;
   if (!home) return <Spinner text="홈을 불러오는 중" />;
 
-  const { event, todos, cards } = home;
-  const percent = event ? Math.round(event.progress * 100) : 0;
+  const { event, todos, deadlines, products } = home;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs text-sub">
-            내 행사{event ? ` / ${event.name}` : ""} / 행사 홈
-          </p>
-          <h1 className="mt-2 flex items-center gap-2 text-[28px] leading-tight font-bold">
-            행사 홈
-            {home.is_sample && (
-              <span className="rounded-md bg-chip px-2 py-0.5 text-xs font-medium text-sub">예시</span>
-            )}
-          </h1>
-          <p className="mt-2 text-sm text-sub">진행 상황과 필요한 업무를 확인하고 카드 위치를 바꿔보세요.</p>
-        </div>
-        <button
-          type="button"
-          className="h-[42px] rounded-lg border border-line bg-white px-12 text-sm font-bold"
-        >
-          대시보드 편집
-        </button>
+    // 본문 여백(26px)에 더해 Figma 위치(사이드 메뉴에서 51px, 위에서 46px)에 맞춘다.
+    <div className="sm:px-[25px] sm:pt-5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:pl-2">
+        <h1 className="text-[32px] leading-normal font-bold text-black">{event ? event.name : "홈"}</h1>
+        {event && event.d_day !== null && (
+          <span className="rounded-[44px] bg-[#6d53f1] px-5 py-[5px] text-2xl leading-normal font-bold whitespace-nowrap text-white">
+            {dLabel(event.d_day)}
+          </span>
+        )}
       </div>
 
-      {event ? (
-        <section className="flex flex-wrap items-center gap-x-10 gap-y-4 rounded-xl border border-line bg-white px-6 py-5">
-          <div>
-            <p className="text-base font-medium">{event.name}</p>
-            <p className="mt-3 text-[40px] leading-none font-bold">{dLabel(event.d_day) || "일정 미정"}</p>
-          </div>
-          <div className="min-w-[240px] flex-1">
-            <p className="text-xs text-sub">전체 준비 진행률</p>
-            <div className="mt-3 flex items-center gap-3">
-              <div
-                role="progressbar"
-                aria-label="전체 준비 진행률"
-                aria-valuenow={percent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                className="h-2.5 flex-1 overflow-hidden rounded-full bg-chip"
-              >
-                <div className="h-full rounded-full bg-ink" style={{ width: `${percent}%` }} />
-              </div>
-              <span className="text-sm font-bold">{percent}%</span>
-            </div>
-          </div>
-          <div className="min-w-[200px]">
-            <p className="text-xs text-sub">{eventMeta(event)}</p>
-            <span className="mt-3 inline-flex h-7 min-w-[104px] items-center justify-center rounded-full bg-chip px-4 text-xs font-medium text-sub">
-              {STATUS_LABEL[event.status]}
-            </span>
-          </div>
-        </section>
-      ) : (
-        <section className="rounded-xl border border-dashed border-line bg-white p-10 text-center text-sm text-sub">
-          아직 등록된 행사가 없어요.
-          <div className="mt-4">
-            <Link href="/events/new" className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white">
-              첫 행사 등록하기
-            </Link>
-          </div>
-        </section>
+      {!event && (
+        <p className="mt-4 text-sm text-sub">
+          아직 등록된 행사가 없어요.{" "}
+          <Link href="/events/new" className="font-medium text-[#6d53f1] underline">
+            첫 행사 등록하기
+          </Link>
+        </p>
       )}
 
-      <section className="rounded-xl border border-line bg-white px-6 py-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">지금 확인할 일</h2>
-          <span className="inline-flex h-7 min-w-[86px] items-center justify-center rounded-full bg-ink px-4 text-xs font-bold text-white">
-            {home.todo_total}건
-          </span>
-        </div>
-        {todos.length === 0 ? (
-          <p className="mt-5 text-sm text-sub">지금 확인할 일이 없어요.</p>
-        ) : (
-          <ul className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-3">
-            {todos.map((t) => (
-              <li key={t.id}>
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={!!done[t.id]}
-                    onChange={(e) => setDone((d) => ({ ...d, [t.id]: e.target.checked }))}
-                    className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-ink"
-                  />
-                  <span>
-                    <span className={`block text-sm font-medium ${done[t.id] ? "text-sub line-through" : ""}`}>
-                      {t.title}
+      <section className="mt-[14px] flex flex-col gap-8 rounded-[20px] bg-[#6d53f1] px-[35px] pt-[29px] pb-[40px] text-white md:min-h-[275px] md:flex-row md:gap-0">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl leading-normal font-bold">지금 할 일</h2>
+          {todos.length === 0 ? (
+            <p className="mt-[33px] text-base font-medium opacity-80">지금 할 일이 없어요.</p>
+          ) : (
+            <ul className="mt-[33px] flex flex-col gap-5">
+              {todos.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={!!done[t.id]}
+                    onClick={() => setDone((d) => ({ ...d, [t.id]: !d[t.id] }))}
+                    className="flex items-center gap-[13px] text-left text-base leading-normal font-medium"
+                  >
+                    {/* 흰 동그라미는 그대로 두고, 체크하면 안에 보라색 작은 원을 띄운다 */}
+                    <span className="relative flex shrink-0 items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={todoCircle.src} alt="" />
+                      {done[t.id] && <span className="absolute size-[10px] rounded-full bg-[#6d53f1]" />}
                     </span>
-                    {t.due_date && <span className="mt-2 block text-[11px] text-sub">마감 {md(t.due_date)}</span>}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
+                    <span className={done[t.id] ? "line-through opacity-60" : ""}>{t.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* 가운데 세로 선: 가로 선 원본을 90도 돌려 쓴다 (Figma와 같은 방식) */}
+        <div className="hidden w-0 items-center justify-center self-stretch pt-[46px] md:flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={dividerLine.src} alt="" className="max-w-none rotate-90" />
+        </div>
+
+        <div className="min-w-0 flex-1 md:pl-[30px]">
+          <h2 className="text-2xl leading-normal font-bold">다가오는 마감</h2>
+          {deadlines.length === 0 ? (
+            <p className="mt-[33px] text-base font-medium opacity-80">다가오는 마감이 없어요.</p>
+          ) : (
+            <ul className="mt-[33px] flex flex-col gap-5 text-base leading-normal font-medium md:pl-[5px]">
+              {deadlines.map((d) => (
+                <li key={d.id} className="flex">
+                  <span className="w-[74px] shrink-0 whitespace-nowrap">{dLabel(d.d_day)}</span>
+                  <span className="min-w-0">{d.title}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
-      <section>
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-lg font-bold">내 요약 카드</h2>
-          <span className="text-xs text-sub">카드 추가·숨김·순서 편집</span>
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((c) => (
-            <article key={c.key} className="flex min-h-[168px] flex-col rounded-xl border border-line bg-white p-5">
-              <div className="flex items-center gap-2.5">
-                <CardIcon name={c.key} />
-                <h3 className="flex-1 text-[15px] font-bold">{c.title}</h3>
-                <DragDots />
-              </div>
-              <p className="mt-4 border-b border-line pb-3 text-[17px] font-bold">{c.headline}</p>
-              <dl className="mt-3 flex flex-col gap-2">
-                {c.rows.map((r) => (
-                  <div key={r.label} className="flex justify-between text-xs">
-                    <dt className="text-sub">{r.label}</dt>
-                    <dd className="font-bold">{r.value}</dd>
+      <section className="mt-11 grid grid-cols-2 gap-x-[50px] gap-y-10 lg:grid-cols-4">
+        {products.map((p, i) => {
+          const col = COLUMNS[i % COLUMNS.length];
+          const bar = (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={col.line.src} alt="" className="absolute bottom-[12px] left-1/2 -translate-x-1/2" />
+          );
+          return (
+            <div key={p.id} className="min-w-0">
+              <h2 className="truncate text-xl leading-normal font-semibold text-black">{p.name}</h2>
+              <div className="mt-[18px] flex flex-col gap-5">
+                {/* 첫 카드: 위는 상품 사진 자리(회색), 아래는 열 색 */}
+                <div className={`relative h-[250px] overflow-hidden rounded-[15px] ${col.bg}`}>
+                  <div
+                    className="h-[163px] bg-[#e4e4e4] bg-cover bg-center"
+                    style={p.image_url ? { backgroundImage: `url(${p.image_url})` } : undefined}
+                  />
+                  {bar}
+                </div>
+                {p.cards.map((c, n) => (
+                  <div
+                    key={c.id}
+                    className={`relative rounded-[15px] ${col.bg}`}
+                    style={{ height: col.heights[n % col.heights.length] }}
+                  >
+                    {bar}
                   </div>
                 ))}
-              </dl>
-              <Link href={c.href} className="mt-auto self-end pt-2 text-[11px] text-sub hover:text-ink">
-                상세 보기 ›
-              </Link>
-            </article>
-          ))}
-        </div>
+              </div>
+            </div>
+          );
+        })}
       </section>
     </div>
-  );
-}
-
-// 카드 오른쪽 위 점 6개 (순서 바꾸기 손잡이 자리. 드래그는 아직 없음)
-function DragDots() {
-  return (
-    <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor" aria-hidden className="text-sub">
-      {[3, 10, 17].map((y) => [3, 11].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}
-    </svg>
-  );
-}
-
-const ICONS: Record<string, string> = {
-  // 상자
-  orders: "M12 3 4 7v10l8 4 8-4V7l-8-4Zm0 0v18M4 7l8 4 8-4",
-  // 확성기
-  promo: "M4 10v4h3l8 4V6l-8 4H4Zm3 4 1 5h2",
-  // 문서
-  ai_inbox: "M6 3h9l4 4v14H6V3Zm3 8h7M9 15h7",
-  // 달력
-  deadlines: "M4 6h16v14H4V6Zm0 4h16M8 3v4M16 3v4",
-  // 막대 그래프
-  budget: "M4 20h16M7 20v-7M12 20V5M17 20v-10",
-  // 격자
-  onsite: "M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z",
-};
-
-function CardIcon({ name }: { name: string }) {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className="shrink-0 text-sub"
-    >
-      <path d={ICONS[name] ?? ICONS.onsite} />
-    </svg>
   );
 }
