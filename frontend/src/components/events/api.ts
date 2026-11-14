@@ -81,6 +81,7 @@ export interface EventProduct {
   stock: number;
   planned_qty: number;
   shortage: number;
+  image_url: string;
 }
 
 export interface EventOut extends EventIn {

@@ -22,6 +22,7 @@ def _get_or_404(store_id: str, product_id: str) -> dict:
 
 @router.get("", response_model=list[ProductOut], summary="상품 목록")
 def list_products(store: dict = Depends(current_store)):
+    db.seed_demo_products(store["id"])  # 시연용 예시 상품 (브랜드마다 처음 한 번만)
     return [_out(p) for p in db.list_products(store["id"])]
 
 

@@ -60,6 +60,7 @@ def _out(ev: dict) -> EventOut:
             stock=p["stock"],
             planned_qty=p["planned_qty"],
             shortage=max(0, p["planned_qty"] - p["stock"]),
+            image_url=p.get("image_url") or "",
         )
         for p in db.get_event_products(ev["id"])
     ]

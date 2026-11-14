@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 303 175" width="303" height="175" role="img" aria-label="상품 사진 자리">
+  <rect width="303" height="175" fill="#e8e0d5"/>
+  <rect x="113" y="30" width="78" height="112" rx="7" fill="#2b2b2f"/>
+  <rect x="126" y="50" width="52" height="33" rx="3" fill="#e4cf8f"/>
+  <rect x="133" y="58" width="38" height="3" rx="1.5" fill="#c6ab5e"/>
+  <rect x="133" y="66" width="30" height="3" rx="1.5" fill="#c6ab5e"/>
+  <circle cx="152" cy="118" r="7" fill="#d9d2c6"/>
+</svg>

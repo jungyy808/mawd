@@ -90,6 +90,7 @@ class ProductIn(BaseModel):
     stock: int = Field(0, ge=0, description="현재고", examples=[30])
     url: str = Field("", description="상품 URL", examples=["https://smartstore.naver.com/..."])
     selling_point: str = Field("", description="소구점", examples=["가벼운 휴대성"])
+    image_url: str = Field("", description="상품 사진 URL", examples=["https://.../note.jpg"])
     cost: int = Field(0, ge=0, description="원가(원) · 손익 계산용", examples=[5000])
     image_url: str = Field("", description="상품 이미지 (선택 · POST /api/products/{id}/image 로 업로드)")
 
@@ -169,6 +170,7 @@ class EventProductOut(BaseModel):
     stock: int = Field(description="가용 수량(현재고)")
     planned_qty: int = Field(description="판매 예정 수량")
     shortage: int = Field(description="추가 준비 필요 수량 = max(0, 판매 예정 - 가용)")
+    image_url: str = Field("", description="상품 사진 URL")
 
 
 class EventOut(EventIn):

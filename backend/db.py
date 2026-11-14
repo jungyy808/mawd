@@ -36,11 +36,12 @@ _EVENT_EXTRA_COLUMNS.update({
 # 상품 원가 (Figma: 준비 수량과 원가 편집)
 _PRODUCT_EXTRA_COLUMNS = {
     "cost": "INTEGER NOT NULL DEFAULT 0",
-    "image_url": "TEXT NOT NULL DEFAULT ''",
+    "image_url": "TEXT NOT NULL DEFAULT ''",  # 상품 사진 (판매 상품 설정 카드)
 }
 
 # 예전 DB에 없던 컬럼 자동 추가용
 _STORE_EXTRA_COLUMNS = {
+    "demo_seeded": "INTEGER NOT NULL DEFAULT 0",  # 예시 상품을 한 번 넣었는지 (지운 뒤 다시 생기지 않게)
     "store_url": "TEXT NOT NULL DEFAULT ''",
     "intro": "TEXT NOT NULL DEFAULT ''",
     "target_customer": "TEXT NOT NULL DEFAULT ''",
@@ -753,6 +754,35 @@ def delete_content(event_id: str, content_id: str) -> None:
         conn.execute("DELETE FROM event_contents WHERE id = ? AND event_id = ?", (content_id, event_id))
 
 
+# ---------- 시연용 예시 상품 (Figma: 판매 상품 설정) ----------
+# 상품이 하나도 없으면 화면이 비어 시연이 안 되므로, 브랜드마다 처음 한 번만 넣는다.
+# 사진은 실제 상품 사진 대신 직접 그린 자리표시 그림(/demo/product.svg)을 쓴다.
+
+DEMO_PRODUCTS = [
+    {"sku": "A-01", "name": "포켓 노트", "price": 12000, "stock": 30, "cost": 5000,
+     "selling_point": "손바닥만 한 크기로 들고 다니기 좋아요", "url": "", "image_url": "/demo/product.svg"},
+    {"sku": "A-02", "name": "떡메모지", "price": 6000, "stock": 40, "cost": 2200,
+     "selling_point": "한 장씩 뜯어 쓰는 메모지", "url": "", "image_url": "/demo/product.svg"},
+    {"sku": "A-03", "name": "스티커 팩", "price": 4000, "stock": 60, "cost": 1200,
+     "selling_point": "다이어리 꾸미기용 10종 세트", "url": "", "image_url": "/demo/product.svg"},
+    {"sku": "A-04", "name": "엽서 세트", "price": 8000, "stock": 25, "cost": 3000,
+     "selling_point": "계절 일러스트 4종", "url": "", "image_url": "/demo/product.svg"},
+    {"sku": "A-05", "name": "아크릴 키링", "price": 9000, "stock": 35, "cost": 3500,
+     "selling_point": "가방에 달기 좋은 가벼운 키링", "url": "", "image_url": "/demo/product.svg"},
+]
+
+
+def seed_demo_products(store_id: str) -> None:
+    """예시 상품 채우기. 브랜드마다 한 번만 실행되고, 상품을 지운 뒤에는 다시 생기지 않는다."""
+    store = get_store(store_id)
+    if not store or store.get("demo_seeded"):
+        return
+    with get_conn() as conn:
+        conn.execute("UPDATE stores SET demo_seeded = 1 WHERE id = ?", (store_id,))
+    if list_products(store_id):
+        return
+    for p in DEMO_PRODUCTS:
+        create_product(store_id, p)
 # ---------- 로그인 (운영자 계정 = 브랜드) ----------
 
 def _hash_pw(password: str, salt: str | None = None) -> str:

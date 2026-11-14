@@ -45,6 +45,11 @@ export default function EventShell({ children }: { children: ReactNode }) {
   const base = `/events/${id}`;
   const current = pathname.slice(base.length).split("/")[1] ?? "";
 
+  // 판매 상품 설정은 행사 생성의 한 단계라 행사 헤더·탭 없이 화면만 보여 준다 (Figma 20:3486)
+  if (current === "products") {
+    return <EventCtx.Provider value={{ ev, reload, patch }}>{children}</EventCtx.Provider>;
+  }
+
   return (
     <EventCtx.Provider value={{ ev, reload, patch }}>
       <div className="mx-auto max-w-[1128px]">
