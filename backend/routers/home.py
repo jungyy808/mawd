@@ -54,11 +54,12 @@ def get_home(event_id: str | None = Query(None, description="사이드바에서 
 
     # 판매 상품: 준비 수량·남은 재고·판매
     sold = db.sold_qty_by_product(ev["id"])
+    received = db.received_qty_by_product(ev["id"])  # 입고 완료된 추가 수량
     products = []
     for p in db.get_event_products(ev["id"]):
         n = sold.get(p["id"], 0)
         products.append(HomeProduct(id=p["id"], name=p["name"], image_url=None, cards=[
-            HomeProductCard(id=f"{p['id']}_stock", label=f"준비 {p['planned_qty']}개 · 남은 {p['planned_qty'] - n}개"),
+            HomeProductCard(id=f"{p['id']}_stock", label=f"준비 {p['planned_qty'] + received.get(p['id'], 0)}개 · 남은 {max(0, p['planned_qty'] + received.get(p['id'], 0) - n)}개"),
             HomeProductCard(id=f"{p['id']}_sold", label=f"판매 {n}개 · {n * p['price']:,}원"),
         ]))
 

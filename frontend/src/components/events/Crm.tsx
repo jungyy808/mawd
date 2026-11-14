@@ -7,15 +7,6 @@ import { Badge, Button, Card, CopyButton, ErrorBox, Field, inputCls } from "@/co
 type Rule = { id: string; keyword: string; answer: string; active: boolean };
 type TestOut = { result: "auto" | "review"; rule: Rule | null; answer: string; reason: string };
 
-function Notice({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-      <p className="font-semibold">{title}</p>
-      <div className="mt-1 space-y-1 text-amber-800">{children}</div>
-    </div>
-  );
-}
-
 type Inquiry = { id: string; name: string; at: string; messages: { from: "user" | "bot" | "manager"; text: string }[] };
 type Reply = { status: "auto" | "review" | "sent"; text: string; reason: string; sentAt?: string };
 

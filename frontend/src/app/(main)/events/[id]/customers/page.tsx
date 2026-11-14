@@ -7,7 +7,7 @@ import { useEvent } from "@/components/events/EventShell";
 import { VisitorPage } from "@/components/events/sections";
 import { Button } from "@/components/events/ui";
 
-const TABS = [["inquiry", "문의 관리"], ["email", "이메일 발송"], ["qr", "부스 QR·구독"], ["api", "API 연동"]] as const;
+const TABS = [["inquiry", "문의 관리"], ["email", "이메일 발송"], ["qr", "부스 QR·구독"], ["api", "연결 서비스"]] as const;
 type Tab = (typeof TABS)[number][0];
 
 export default function CustomersPage() {
