@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import defaultProductImg from "@/assets/events/product-default.png";
-import { type EventOut, type Product, api } from "@/components/events/api";
+import { type EventOut, type Product, api, uploadProductImage } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { ErrorBox, Spinner } from "@/components/events/ui";
 
@@ -43,6 +43,7 @@ export default function EventProductsPage() {
   // 새 상품 추가 카드 상태
   const [adding, setAdding] = useState(false);
   const [newDraft, setNewDraft] = useState({ name: "", price: "", qty: "30" });
+  const [newImg, setNewImg] = useState<File | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -143,6 +144,18 @@ export default function EventProductsPage() {
     }
   };
 
+  // 상품 사진 바꾸기 (main 브랜치의 업로드 API 사용)
+  const changePhoto = async (p: Product, file: File | null) => {
+    if (!file) return;
+    try {
+      setError("");
+      const updated = await uploadProductImage(p.id, file);
+      setProducts((prev) => (prev ?? []).map((item) => (item.id === p.id ? updated : item)));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   const handleAddProduct = async () => {
     const name = newDraft.name.trim();
     if (!name) return;
@@ -151,10 +164,11 @@ export default function EventProductsPage() {
 
     try {
       setError("");
-      const created = await api<Product>("/api/products", {
+      let created = await api<Product>("/api/products", {
         method: "POST",
         json: { name, sku: "", price, stock: planned },
       });
+      if (newImg) created = await uploadProductImage(created.id, newImg).catch(() => created);
       const nextProducts = [...(products ?? []), created];
       const nextPicked = { ...picked, [created.id]: true };
       const nextQty = { ...qty, [created.id]: planned };
@@ -162,6 +176,7 @@ export default function EventProductsPage() {
       setPicked(nextPicked);
       setQty(nextQty);
       setNewDraft({ name: "", price: "", qty: "30" });
+      setNewImg(null);
       setAdding(false);
       await persistEventProducts(nextPicked, nextQty);
     } catch (err) {
@@ -232,10 +247,16 @@ export default function EventProductsPage() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={defaultProductImg.src}
+                src={p.image_url || defaultProductImg.src}
                 alt={p.name}
                 className="block aspect-[382/222] w-full rounded-[10px] object-cover"
               />
+              {isEditing && (
+                <label className="mt-2 inline-flex cursor-pointer items-center justify-center self-start rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
+                  사진 바꾸기
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => changePhoto(p, e.target.files?.[0] ?? null)} />
+                </label>
+              )}
 
               {isEditing ? (
                 <div className="mt-4 flex flex-1 flex-col justify-between gap-3">
@@ -357,6 +378,10 @@ export default function EventProductsPage() {
               alt="새 상품 미리보기"
               className="block aspect-[382/222] w-full rounded-[10px] object-cover"
             />
+            <label className="mt-2 inline-flex cursor-pointer items-center justify-center self-start rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
+              {newImg ? newImg.name : "사진 선택 (선택)"}
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => setNewImg(e.target.files?.[0] ?? null)} />
+            </label>
             <div className="mt-4 flex flex-1 flex-col justify-between gap-3">
               <div className="space-y-2.5 text-[15px]">
                 <div className="flex items-center justify-between gap-2">

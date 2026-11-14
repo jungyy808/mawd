@@ -279,7 +279,20 @@ export default function EventNewPage() {
           </div>
         </Row>
         <Row label="참가 신청 마감" check={check("apply_deadline")}>
-          <input className={`${fieldCls} sm:w-[228px]`} placeholder="2026-11-27 18:00" value={form.apply_deadline} onChange={(e) => set("apply_deadline", e.target.value)} />
+          {(() => {
+            // "2026-11-27 18:00" ⇄ 날짜 선택 + 시간 선택 (공고에서 가져온 값이 날짜만 있어도 그대로 보여줌)
+            const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/.exec(form.apply_deadline || "");
+            const d = m?.[1] ?? "";
+            const t = m?.[2] ?? "";
+            const join = (nd: string, nt: string) => set("apply_deadline", nd ? (nt ? `${nd} ${nt}` : nd) : "");
+            return (
+              <div className="flex flex-wrap items-center gap-3">
+                <input type="date" aria-label="신청 마감일" className={halfCls} value={d} onChange={(e) => join(e.target.value, t)} />
+                <input type="time" aria-label="신청 마감 시간" className={halfCls} value={t} disabled={!d} onChange={(e) => join(d, e.target.value)} />
+                {form.apply_deadline && !m && <span className="text-xs text-amber-700">가져온 값: {form.apply_deadline} · 날짜를 다시 골라 주세요</span>}
+              </div>
+            );
+          })()}
         </Row>
         <Row label="반입 시간" check={check("load_in_time")}>
           <div className="flex items-center gap-5">

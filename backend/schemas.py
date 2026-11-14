@@ -17,6 +17,7 @@ class StoreIn(BaseModel):
     sales_channel: str = Field("", description="판매 채널", examples=["스마트스토어"])
     region: str = Field("", description="주 활동 지역 (선택, 콘텐츠 지역 키워드에 사용)", examples=["서울 마포구"])
     monthly_budget: int = Field(0, ge=0, description="월 광고 예산(원, 선택)", examples=[300000])
+    store_url: str = Field("", description="온라인 스토어 URL (https)", examples=["https://smartstore.naver.com/sosogongbang"])
 
 
 class StoreUpdate(BaseModel):
@@ -30,11 +31,31 @@ class StoreUpdate(BaseModel):
     sales_channel: str | None = None
     region: str | None = None
     monthly_budget: int | None = Field(None, ge=0)
+    store_url: str | None = None
+
+
+class StoreCreate(StoreIn):
+    email: str = Field("", description="로그인 이메일 (선택 · 넣으면 비밀번호도 필요)", examples=["owner@example.com"])
+    password: str = Field("", description="비밀번호 8자 이상")
+
+
+class LoginIn(BaseModel):
+    email: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=1)
 
 
 class StoreOut(BaseModel):
     store_id: str
     store: StoreIn
+    email: str = ""
+
+
+class Integration(BaseModel):
+    key: str
+    name: str
+    status: str = Field(..., description="ready(사용 가능) / not_connected(연결 전) / error")
+    status_label: str
+    check: str
 
 
 Channel = Literal["all", "blog", "instagram"]
@@ -71,6 +92,7 @@ class ProductIn(BaseModel):
     selling_point: str = Field("", description="소구점", examples=["가벼운 휴대성"])
     image_url: str = Field("", description="상품 사진 URL", examples=["https://.../note.jpg"])
     cost: int = Field(0, ge=0, description="원가(원) · 손익 계산용", examples=[5000])
+    image_url: str = Field("", description="상품 이미지 (선택 · POST /api/products/{id}/image 로 업로드)")
 
 
 class ProductUpdate(BaseModel):
@@ -562,7 +584,33 @@ class SalesOut(BaseModel):
 
 # ---------- 성과·리포트 (Figma: 44 행사 마감 리포트) ----------
 
+class ReportOrder(BaseModel):
+    product_id: str
+    name: str
+    qty: int
+    status: str
+    order_date: str
+    expected_date: str
+    received_qty: int = 0
+    received_date: str = ""
+
+
+class AiSuggestion(BaseModel):
+    title: str
+    evidence: str = Field(description="근거 숫자")
+    action: str = Field(description="다음 행동")
+    assumption: str = Field("", description="적용 가정")
+
+
+class AiReportOut(BaseModel):
+    status: Literal["ok", "insufficient"]
+    suggestions: list[AiSuggestion] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list, description="확인이 필요한 데이터")
+    is_fallback: bool = False
+
+
 class ReportOut(BaseModel):
+    orders: list[ReportOrder] = Field(default_factory=list, description="발주·입고 내역 (상품별 발주·입고일)")
     revenue: int
     sold_qty: int
     goods_cost: int = Field(description="판매된 상품 원가")

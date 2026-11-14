@@ -39,7 +39,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
       const err = data?.error ?? {};
       if (err.code === "store_not_found" || err.code === "store_id_missing") {
         window.localStorage.removeItem(STORE_KEY);
-        window.location.href = "/onboarding";
+        window.location.href = "/login";
       }
       throw new ApiError(res.status, err.code ?? "http_error", err.message ?? `요청 실패 (${res.status})`);
     }
@@ -120,7 +120,8 @@ export interface Product {
   stock: number;
   url: string;
   selling_point: string;
-  image_url: string;
+  cost?: number;
+  image_url?: string;
 }
 
 export interface PlanOut {
@@ -221,7 +222,11 @@ export interface BudgetOut {
 export interface StockRow { product_id: string; name: string; price: number; prepared_qty: number; received_qty?: number; sold_qty: number; remaining: number }
 export interface SaleOut { id: string; payment_method: string; total: number; created_at: string; items: { product_id: string; name: string; qty: number; price: number }[] }
 export interface SalesOut { sales: SaleOut[]; stock: StockRow[]; total_revenue: number; total_qty: number }
+export type ReportOrder = { product_id: string; name: string; qty: number; status: "planned" | "ordered" | "received"; order_date: string; expected_date: string; received_qty: number; received_date: string };
+export type AiSuggestion = { title: string; evidence: string; action: string; assumption: string };
+export type AiReportOut = { status: "ok" | "insufficient"; suggestions: AiSuggestion[]; missing: string[]; is_fallback: boolean };
 export interface ReportOut {
+  orders?: ReportOrder[];
   revenue: number; sold_qty: number; goods_cost: number; expenses: number; profit: number; remaining_qty: number;
   stock: StockRow[]; target_qty: number | null; gap_qty: number | null; achievement_rate: number | null; target_is_set: boolean;
   by_payment: Record<string, number>; basis: string;
@@ -256,4 +261,11 @@ export function notifyEventDeleted(id: string) {
   try { if (localStorage.getItem("mawd_current_event") === id) localStorage.removeItem("mawd_current_event"); } catch {}
   window.dispatchEvent(new Event("mawd:events-changed"));
   window.dispatchEvent(new Event("mawd:event-picked"));
+}
+
+/** 상품 이미지 첨부 (선택) */
+export async function uploadProductImage(productId: string, file: File): Promise<Product> {
+  const fd = new FormData();
+  fd.append("image", file);
+  return api<Product>(`/api/products/${productId}/image`, { method: "POST", body: fd });
 }

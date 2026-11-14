@@ -15,6 +15,7 @@ STORE_FIELDS = (
     "sales_channel",
     "region",
     "monthly_budget",
+    "store_url",
 )
 
 # 행사 테이블 추가 컬럼 (방문객용 안내 페이지)
@@ -41,6 +42,7 @@ _PRODUCT_EXTRA_COLUMNS = {
 # 예전 DB에 없던 컬럼 자동 추가용
 _STORE_EXTRA_COLUMNS = {
     "demo_seeded": "INTEGER NOT NULL DEFAULT 0",  # 예시 상품을 한 번 넣었는지 (지운 뒤 다시 생기지 않게)
+    "store_url": "TEXT NOT NULL DEFAULT ''",
     "intro": "TEXT NOT NULL DEFAULT ''",
     "target_customer": "TEXT NOT NULL DEFAULT ''",
     "sales_channel": "TEXT NOT NULL DEFAULT ''",
@@ -245,6 +247,22 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS auto_reply_rules (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                keyword TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        store_cols = {r[1] for r in conn.execute("PRAGMA table_info(stores)")}
+        for col in ("email", "password_hash"):
+            if col not in store_cols:
+                conn.execute(f"ALTER TABLE stores ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
         sale_cols = {r[1] for r in conn.execute("PRAGMA table_info(event_sale_items)")}
         if "cost" not in sale_cols:
             conn.execute("ALTER TABLE event_sale_items ADD COLUMN cost INTEGER NOT NULL DEFAULT 0")
@@ -400,7 +418,7 @@ def get_event_public(event_id: str) -> dict | None:
 def delete_event(store_id: str, event_id: str) -> None:
     _delete("events", store_id, event_id)
     with get_conn() as conn:
-        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items", "purchase_orders", "event_contents"):
+        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items", "purchase_orders", "event_contents", "auto_reply_rules"):
             conn.execute(f"DELETE FROM {table} WHERE event_id = ?", (event_id,))
 
 
@@ -765,3 +783,58 @@ def seed_demo_products(store_id: str) -> None:
         return
     for p in DEMO_PRODUCTS:
         create_product(store_id, p)
+# ---------- 로그인 (운영자 계정 = 브랜드) ----------
+
+def _hash_pw(password: str, salt: str | None = None) -> str:
+    import hashlib
+    salt = salt or secrets.token_hex(8)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100_000).hex()
+    return f"{salt}${digest}"
+
+
+def set_login(store_id: str, email: str, password: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE stores SET email = ?, password_hash = ? WHERE id = ?", (email.strip().lower(), _hash_pw(password), store_id))
+
+
+def email_taken(email: str) -> bool:
+    with get_conn() as conn:
+        return conn.execute("SELECT 1 FROM stores WHERE email = ?", (email.strip().lower(),)).fetchone() is not None
+
+
+def check_login(email: str, password: str) -> dict | None:
+    import hmac
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM stores WHERE email = ? AND email != ''", (email.strip().lower(),)).fetchone()
+    if not row or not row["password_hash"]:
+        return None
+    salt = row["password_hash"].split("$", 1)[0]
+    return dict(row) if hmac.compare_digest(_hash_pw(password, salt), row["password_hash"]) else None
+
+
+# ---------- 채널톡 자동 응답 규칙 (CRM-01) ----------
+
+def list_rules(event_id: str) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM auto_reply_rules WHERE event_id = ? ORDER BY created_at", (event_id,)).fetchall()
+    return [{**dict(r), "active": bool(r["active"])} for r in rows]
+
+
+def add_rule(event_id: str, keyword: str, answer: str) -> None:
+    with get_conn() as conn:
+        conn.execute("INSERT INTO auto_reply_rules (id, event_id, keyword, answer, active, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+                     (f"ar_{secrets.token_hex(4)}", event_id, keyword, answer, _now()))
+
+
+def update_rule(event_id: str, rule_id: str, changes: dict) -> None:
+    changes = {k: (int(v) if k == "active" else v) for k, v in changes.items() if k in ("keyword", "answer", "active")}
+    if not changes:
+        return
+    sets = ", ".join(f"{k} = ?" for k in changes)
+    with get_conn() as conn:
+        conn.execute(f"UPDATE auto_reply_rules SET {sets} WHERE id = ? AND event_id = ?", [*changes.values(), rule_id, event_id])
+
+
+def delete_rule(event_id: str, rule_id: str) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM auto_reply_rules WHERE id = ? AND event_id = ?", (rule_id, event_id))

@@ -236,6 +236,25 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
                 ))}
               </ul>
               <p className="mt-2 text-neutral-700">{reg.message}</p>
+              {reg.status === "ok" && draft && (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg bg-white p-4">
+                    <p className="font-semibold text-black">캠페인 세부 · 중지 상태로 등록됨</p>
+                    <dl className="mt-2 divide-y divide-neutral-100 text-xs">
+                      <div className="py-1.5"><dt className="text-neutral-500">캠페인 / 광고그룹</dt><dd className="font-medium">{draft.campaign_name} / {draft.adgroup_name}</dd></div>
+                      <div className="py-1.5"><dt className="text-neutral-500">등록 결과</dt><dd className="font-medium">캠페인 1 · 그룹 1 · 키워드 {draft.keywords.length} · 소재 1</dd></div>
+                      <div className="py-1.5"><dt className="text-neutral-500">일예산 / 계획 기간</dt><dd className="font-medium">{won(draft.daily_budget)} / {form.start_date || "-"} ~ {form.end_date || "-"}</dd></div>
+                      <div className="py-1.5"><dt className="text-neutral-500">검수 상태</dt><dd className="font-medium">소재 검토 중 (네이버 검수 후 노출 가능)</dd></div>
+                    </dl>
+                  </div>
+                  <div className="rounded-lg bg-white p-4">
+                    <p className="font-semibold text-black">집행 확인</p>
+                    <p className="mt-2 text-xs text-neutral-600">등록과 실제 집행은 달라요. 지금은 중지 상태라 광고비가 나가지 않아요.</p>
+                    <p className="mt-1 text-xs text-neutral-600">집행하려면 네이버 광고 관리자에서 권한·소재 검수 상태를 확인한 뒤 직접 켜 주세요. MAWD는 집행을 켜지 않아요.</p>
+                    <a href={reg.manage_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-[#6d53f1] px-3 py-2 text-xs font-semibold text-white">집행 승인 검토 ↗</a>
+                  </div>
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button variant="secondary" href={reg.manage_url}>네이버 광고 관리자 열기 ↗</Button>
                 {reg.status !== "ok" && <Button variant="ghost" onClick={() => { setReg(null); setApprove(true); setAgreed(false); }}>다시 시도</Button>}
