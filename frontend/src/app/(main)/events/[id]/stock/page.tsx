@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PAY_LABEL, type SalesOut, api, won } from "@/components/events/api";
 import { useEvent } from "@/components/events/EventShell";
 import { StockPlan } from "@/components/events/sections";
+import Orders from "@/components/events/Orders";
 import { Badge, Button, Card, Empty, ErrorBox, Spinner } from "@/components/events/ui";
 
 export default function StockPage() {
@@ -54,7 +55,7 @@ export default function StockPage() {
                   <div key={s.product_id} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${bad ? "border-red-300 bg-red-50" : "border-neutral-200 bg-neutral-50"}`}>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{s.name} · 남은 재고 {s.remaining}개</p>
-                      <p className="text-xs text-neutral-500">{won(s.price)} · 준비 {s.prepared_qty}개 · 판매 {s.sold_qty}개</p>
+                      <p className="text-xs text-neutral-500">{won(s.price)} · 배정 {s.prepared_qty}개{s.received_qty ? ` · 입고 +${s.received_qty}개` : ""} · 판매 {s.sold_qty}개</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="mr-1 text-sm font-medium">판매 수량</span>
@@ -102,6 +103,8 @@ export default function StockPage() {
           </ul>
         )}
       </Card>
+
+      <Orders eventId={ev.id} onStockChange={load} />
 
       <StockPlan id={ev.id} visitors={ev.expected_visitors} onVisitors={async (n) => { await patch({ expected_visitors: n }); await reload(); }} />
     </div>

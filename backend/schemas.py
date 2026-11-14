@@ -540,8 +540,9 @@ class StockRow(BaseModel):
     name: str
     price: int
     prepared_qty: int
+    received_qty: int = Field(0, description="입고 완료된 추가 수량")
     sold_qty: int
-    remaining: int
+    remaining: int = Field(description="판매 가능 재고 = 배정 + 입고 − 판매")
 
 
 class SalesOut(BaseModel):
@@ -596,3 +597,44 @@ class NaverRegisterOut(BaseModel):
     steps: list[RegisterStep]
     manage_url: str = "https://manage.searchad.naver.com"
     message: str
+
+
+
+# ---------- 발주·입고 (Figma: 38 발주 일정 등록 · ORD-01) ----------
+
+OrderStatus = Literal["planned", "ordered", "received"]
+
+
+class OrderIn(BaseModel):
+    product_id: str
+    qty: int = Field(..., ge=1, description="발주 수량 (양수)")
+    supplier: str = Field("", description="공급처", examples=["키링공방"])
+    order_date: str = Field(..., description="발주일 YYYY-MM-DD")
+    expected_date: str = Field(..., description="입고 예정일 YYYY-MM-DD (발주일과 같거나 이후)")
+
+
+class OrderStatusIn(BaseModel):
+    status: Literal["ordered"]
+
+
+class ReceiveIn(BaseModel):
+    received_qty: int = Field(..., ge=0, description="실제 입고 수량")
+    received_date: str = Field(..., description="실제 입고일 YYYY-MM-DD")
+
+
+class OrderOut(BaseModel):
+    id: str
+    product_id: str
+    name: str
+    qty: int
+    supplier: str
+    order_date: str
+    expected_date: str
+    status: OrderStatus
+    received_qty: int
+    received_date: str | None
+
+
+class OrdersOut(BaseModel):
+    orders: list[OrderOut]
+    stock: list[StockRow]

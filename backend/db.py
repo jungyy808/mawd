@@ -209,6 +209,23 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS purchase_orders (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                qty INTEGER NOT NULL,
+                supplier TEXT NOT NULL DEFAULT '',
+                order_date TEXT NOT NULL,
+                expected_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'planned',
+                received_qty INTEGER NOT NULL DEFAULT 0,
+                received_date TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         sale_cols = {r[1] for r in conn.execute("PRAGMA table_info(event_sale_items)")}
         if "cost" not in sale_cols:
             conn.execute("ALTER TABLE event_sale_items ADD COLUMN cost INTEGER NOT NULL DEFAULT 0")
@@ -364,7 +381,7 @@ def get_event_public(event_id: str) -> dict | None:
 def delete_event(store_id: str, event_id: str) -> None:
     _delete("events", store_id, event_id)
     with get_conn() as conn:
-        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items"):
+        for table in ("event_products", "event_plans", "event_supplies", "checklist_items", "event_expenses", "event_sales", "event_sale_items", "purchase_orders"):
             conn.execute(f"DELETE FROM {table} WHERE event_id = ?", (event_id,))
 
 
@@ -596,3 +613,57 @@ def save_ad_registration(store_id: str, request_id: str, campaign_id: str, statu
             "INSERT OR REPLACE INTO ad_registrations (request_id, store_id, campaign_id, status, result, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (request_id, store_id, campaign_id, status, result, _now()),
         )
+
+
+# ---------- 발주·입고 (Figma: 38 발주 일정 등록 ~ 38.4 입고 완료) ----------
+
+def list_orders(event_id: str) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT o.*, p.name FROM purchase_orders o LEFT JOIN products p ON p.id = o.product_id "
+            "WHERE o.event_id = ? ORDER BY o.expected_date, o.created_at", (event_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_order(event_id: str, order_id: str) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM purchase_orders WHERE id = ? AND event_id = ?", (order_id, event_id)).fetchone()
+    return dict(row) if row else None
+
+
+def add_order(event_id: str, data: dict) -> str:
+    oid = f"po_{secrets.token_hex(4)}"
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO purchase_orders (id, event_id, product_id, qty, supplier, order_date, expected_date, status, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'planned', ?)",
+            (oid, event_id, data["product_id"], data["qty"], data.get("supplier", ""), data["order_date"], data["expected_date"], _now()),
+        )
+    return oid
+
+
+def mark_ordered(event_id: str, order_id: str) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE purchase_orders SET status = 'ordered' WHERE id = ? AND event_id = ? AND status = 'planned'", (order_id, event_id))
+
+
+def receive_order(event_id: str, order_id: str, qty: int, received_date: str) -> bool:
+    """입고 확정: 아직 입고 전인 발주만 한 번 바뀐다 (재시도해도 재고가 두 번 늘지 않음)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE purchase_orders SET status = 'received', received_qty = ?, received_date = ? "
+            "WHERE id = ? AND event_id = ? AND status != 'received'", (qty, received_date, order_id, event_id))
+    return cur.rowcount > 0
+
+
+def delete_order(event_id: str, order_id: str) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM purchase_orders WHERE id = ? AND event_id = ? AND status != 'received'", (order_id, event_id))
+    return cur.rowcount > 0
+
+
+def received_qty_by_product(event_id: str) -> dict[str, int]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT product_id, SUM(received_qty) q FROM purchase_orders WHERE event_id = ? AND status = 'received' GROUP BY product_id",
+                            (event_id,)).fetchall()
+    return {r["product_id"]: r["q"] for r in rows}

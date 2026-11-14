@@ -216,7 +216,7 @@ export interface BudgetOut {
   full_sale_profit: number; basis: string; warnings: string[];
   has_budget: boolean; sold_qty: number; contribution_so_far: number; remaining_to_bep: number | null;
 }
-export interface StockRow { product_id: string; name: string; price: number; prepared_qty: number; sold_qty: number; remaining: number }
+export interface StockRow { product_id: string; name: string; price: number; prepared_qty: number; received_qty?: number; sold_qty: number; remaining: number }
 export interface SaleOut { id: string; payment_method: string; total: number; created_at: string; items: { product_id: string; name: string; qty: number; price: number }[] }
 export interface SalesOut { sales: SaleOut[]; stock: StockRow[]; total_revenue: number; total_qty: number }
 export interface ReportOut {
@@ -239,3 +239,12 @@ export function publicOrigin(): string {
 // 공고 후보 (행사 생성: 찾기 → 고르기 → 정보 채우기)
 export interface ImportCandidate { title: string; url: string; hostname: string; description: string; date: string }
 export interface ImportSearchOut { status: "ok" | "failed"; message: string; candidates: ImportCandidate[] }
+
+// 발주·입고 (ORD-01)
+export type OrderStatus = "planned" | "ordered" | "received";
+export interface OrderOut {
+  id: string; product_id: string; name: string; qty: number; supplier: string;
+  order_date: string; expected_date: string; status: OrderStatus; received_qty: number; received_date: string | null;
+}
+export interface OrdersOut { orders: OrderOut[]; stock: StockRow[] }
+export const ORDER_LABEL: Record<OrderStatus, string> = { planned: "발주 예정", ordered: "발주 완료", received: "입고 완료" };

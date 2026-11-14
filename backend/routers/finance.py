@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 
 import db
 from deps import current_store
+from datetime import date
+
 from schemas import (
+    OrderIn, OrderOut, OrdersOut, OrderStatusIn, ReceiveIn,
     BudgetOut, BudgetProduct, BudgetProductIn, BudgetUpdate, ExpenseIn, ExpenseOut,
     ReportOut, SaleIn, SaleItemOut, SaleOut, SalesOut, StockRow,
 )
@@ -127,9 +130,11 @@ def update_budget_products(event_id: str, body: list[BudgetProductIn], store: di
 
 def _stock(event_id: str) -> list[StockRow]:
     sold = db.sold_qty_by_product(event_id)
+    recv = db.received_qty_by_product(event_id)
     return [
         StockRow(product_id=p["id"], name=p["name"], price=p["price"], prepared_qty=p["planned_qty"],
-                 sold_qty=sold.get(p["id"], 0), remaining=p["planned_qty"] - sold.get(p["id"], 0))
+                 received_qty=recv.get(p["id"], 0), sold_qty=sold.get(p["id"], 0),
+                 remaining=p["planned_qty"] + recv.get(p["id"], 0) - sold.get(p["id"], 0))
         for p in db.get_event_products(event_id)
     ]
 
@@ -199,3 +204,69 @@ def get_report(event_id: str, store: dict = Depends(current_store)):
         achievement_rate=round(sales.total_qty / target, 4) if target else None, target_is_set=bool(target),
         basis=f"{_won(sales.total_revenue)} − 원가 {_won(goods_cost)} − 행사비 {_won(spend)}",
     )
+
+
+
+# ---------- 발주·입고 (ORD-01) ----------
+
+def _orders_out(event_id: str) -> OrdersOut:
+    return OrdersOut(
+        orders=[OrderOut(id=o["id"], product_id=o["product_id"], name=o["name"] or "삭제된 상품", qty=o["qty"],
+                         supplier=o["supplier"], order_date=o["order_date"], expected_date=o["expected_date"],
+                         status=o["status"], received_qty=o["received_qty"], received_date=o["received_date"])
+                for o in db.list_orders(event_id)],
+        stock=_stock(event_id),
+    )
+
+
+def _valid_date(v: str, label: str) -> str:
+    try:
+        return date.fromisoformat(v[:10]).isoformat()
+    except ValueError:
+        raise HTTPException(422, {"code": "invalid_date", "message": f"{label}을 YYYY-MM-DD로 입력해 주세요."}) from None
+
+
+@router.get("/{event_id}/orders", response_model=OrdersOut, summary="발주·입고 목록과 재고 (배정 + 입고 − 판매)")
+def list_orders(event_id: str, store: dict = Depends(current_store)):
+    _event_or_404(store["id"], event_id)
+    return _orders_out(event_id)
+
+
+@router.post("/{event_id}/orders", response_model=OrdersOut, summary="발주 일정 등록 (상태: 발주 예정)")
+def add_order(event_id: str, body: OrderIn, store: dict = Depends(current_store)):
+    _event_or_404(store["id"], event_id)
+    if body.product_id not in {p["id"] for p in db.get_event_products(event_id)}:
+        raise HTTPException(400, {"code": "product_not_in_event", "message": "이 행사에 연결된 상품이 아니에요"})
+    od, ed = _valid_date(body.order_date, "발주일"), _valid_date(body.expected_date, "입고 예정일")
+    if ed < od:
+        raise HTTPException(422, {"code": "invalid_period", "message": "입고 예정일은 발주일과 같거나 이후여야 해요."})
+    db.add_order(event_id, {**body.model_dump(), "order_date": od, "expected_date": ed})
+    return _orders_out(event_id)
+
+
+@router.patch("/{event_id}/orders/{order_id}", response_model=OrdersOut, summary="발주 완료로 변경 (발주 예정 → 발주 완료)")
+def mark_ordered(event_id: str, order_id: str, body: OrderStatusIn, store: dict = Depends(current_store)):
+    _event_or_404(store["id"], event_id)
+    if not db.get_order(event_id, order_id):
+        raise HTTPException(404, {"code": "order_not_found", "message": "발주를 찾을 수 없어요"})
+    db.mark_ordered(event_id, order_id)
+    return _orders_out(event_id)
+
+
+@router.post("/{event_id}/orders/{order_id}/receive", response_model=OrdersOut,
+             summary="입고 확정 → 재고에 한 번만 반영 (같은 요청을 다시 보내도 재고가 또 늘지 않음)")
+def receive_order(event_id: str, order_id: str, body: ReceiveIn, store: dict = Depends(current_store)):
+    _event_or_404(store["id"], event_id)
+    o = db.get_order(event_id, order_id)
+    if not o:
+        raise HTTPException(404, {"code": "order_not_found", "message": "발주를 찾을 수 없어요"})
+    db.receive_order(event_id, order_id, body.received_qty, _valid_date(body.received_date, "입고일"))
+    return _orders_out(event_id)
+
+
+@router.delete("/{event_id}/orders/{order_id}", response_model=OrdersOut, summary="발주 삭제 (입고 완료된 발주는 삭제 불가)")
+def delete_order(event_id: str, order_id: str, store: dict = Depends(current_store)):
+    _event_or_404(store["id"], event_id)
+    if not db.delete_order(event_id, order_id):
+        raise HTTPException(400, {"code": "order_locked", "message": "입고 완료된 발주는 삭제할 수 없어요"})
+    return _orders_out(event_id)
