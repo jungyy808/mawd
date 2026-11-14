@@ -35,7 +35,46 @@ def _parse_json(text: str) -> dict:
 def generate_json(system: str, user: str, image_bytes: bytes | None = None) -> dict:
     if config.LLM_PROVIDER == "openai":
         return _openai(system, user, image_bytes)
+    if config.LLM_PROVIDER == "vapi":
+        return _vapi(system, user)
     return _anthropic(system, user, image_bytes)
+
+
+def _vapi(system: str, user: str) -> dict:
+    """Vapi /chat (텍스트 전용, 이미지는 무시). 대시보드에서 만든 assistant 사용."""
+    if not config.VAPI_API_KEY or not config.VAPI_ASSISTANT_ID:
+        raise LLMError("VAPI_API_KEY 또는 VAPI_ASSISTANT_ID 없음")
+    import urllib.request
+
+    # assistant의 시스템 프롬프트와 상관없이 동작하도록 지시문을 입력에 같이 넣음
+    payload = {
+        "assistantId": config.VAPI_ASSISTANT_ID.strip(),
+        "input": f"{system}\n\n---\n\n{user}",
+    }
+    req = urllib.request.Request(
+        "https://api.vapi.ai/chat",
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": f"Bearer {config.VAPI_API_KEY.strip()}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            # 기본 Python-urllib User-Agent는 막히는 경우가 있어서 명시
+            "User-Agent": "Mozilla/5.0 (mawd-backend)",
+        },
+        method="POST",
+    )
+    import urllib.error
+
+    try:
+        with urllib.request.urlopen(req, timeout=40) as resp:
+            data = json.loads(resp.read().decode())
+        texts = [m.get("content", "") for m in data.get("output", []) if m.get("role") == "assistant"]
+        return _parse_json("".join(t for t in texts if isinstance(t, str)))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="ignore")[:500]
+        raise LLMError(f"HTTP {e.code}: {body}") from e
+    except Exception as e:  # noqa: BLE001
+        raise LLMError(str(e)) from e
 
 
 def _anthropic(system: str, user: str, image_bytes: bytes | None) -> dict:

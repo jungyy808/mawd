@@ -13,6 +13,8 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "")  # openai 쓸 때 모델명 직접 지정
+VAPI_API_KEY = os.getenv("VAPI_API_KEY", "")  # Private API Key
+VAPI_ASSISTANT_ID = os.getenv("VAPI_ASSISTANT_ID", "")
 
 # 배포 주소 (예: https://mawd-api.onrender.com). 비우면 요청 주소 기준으로 이미지 URL 생성
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
