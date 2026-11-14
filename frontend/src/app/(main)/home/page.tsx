@@ -159,40 +159,55 @@ export default function HomePage() {
           <Link href={`/events/${event.id}/products`} className="font-medium text-[#6d53f1] underline">판매 상품 추가</Link>
         </p>
       )}
-      <section className="mt-11 grid grid-cols-2 gap-x-[50px] gap-y-10 lg:grid-cols-4">
-        {products.map((p, i) => {
-          const col = COLUMNS[i % COLUMNS.length];
-          const bar = (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={col.line.src} alt="" className="absolute bottom-[12px] left-1/2 -translate-x-1/2" />
-          );
-          return (
-            <div key={p.id} className="min-w-0">
-              <h2 className="truncate text-xl leading-normal font-semibold text-black">{p.name}</h2>
-              <div className="mt-[18px] flex flex-col gap-5">
-                {/* 첫 카드: 위는 상품 사진 자리(회색), 아래는 열 색 */}
-                <div className={`relative h-[250px] overflow-hidden rounded-[15px] ${col.bg}`}>
-                  <div
-                    className="h-[163px] bg-[#e4e4e4] bg-cover bg-center"
-                    style={p.image_url ? { backgroundImage: `url(${p.image_url})` } : undefined}
-                  />
-                  {bar}
-                </div>
-                {p.cards.map((c, n) => (
-                  <div
-                    key={c.id}
-                    className={`relative rounded-[15px] ${col.bg}`}
-                    style={{ height: col.heights[n % col.heights.length] }}
-                  >
-                    {c.label && <p className="px-4 pt-4 text-sm font-semibold text-black/80">{c.label}</p>}
-                    {bar}
+      {products.length > 0 && event && (
+        <section className="mt-11">
+          <div className="mb-4 flex items-end justify-between gap-3 sm:pl-2">
+            <h2 className="text-2xl leading-normal font-bold text-black">판매 상품 현황</h2>
+            <Link href={`/events/${event.id}/stock`} className="text-sm font-semibold text-[#6d53f1] hover:underline">판매 기록·재고 ↗</Link>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((p, i) => {
+              const col = COLUMNS[i % COLUMNS.length];
+              // 서버 문구에서 숫자만 꺼낸다: "준비 40개 · 남은 32개", "판매 8개 · 96,000원"
+              const text = p.cards.map((c) => c.label ?? "").join(" ");
+              const num = (re: RegExp) => Number((re.exec(text)?.[1] ?? "0").replace(/,/g, ""));
+              const ready = num(/준비 ([\d,]+)개/);
+              const left = num(/남은 ([\d,]+)개/);
+              const sold = num(/판매 ([\d,]+)개/);
+              const revenue = num(/([\d,]+)원/);
+              const rate = ready > 0 ? Math.min(100, Math.round((sold / ready) * 100)) : 0;
+              return (
+                <Link key={p.id} href={`/events/${event.id}/stock`} className="group overflow-hidden rounded-[15px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] transition hover:-translate-y-0.5">
+                  <div className={`relative h-[120px] ${col.bg}`}>
+                    {p.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    )}
+                    {left === 0 && sold > 0 && (
+                      <span className="absolute top-3 left-3 rounded-full bg-black/70 px-2.5 py-0.5 text-xs font-semibold text-white">완판</span>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </section>
+                  <div className="p-4">
+                    <p className="truncate text-lg font-semibold text-black">{p.name}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                      <div><p className="text-xs text-[#55545e]">준비</p><p className="text-lg font-bold tabular-nums">{ready}</p></div>
+                      <div><p className="text-xs text-[#55545e]">판매</p><p className="text-lg font-bold tabular-nums text-[#6d53f1]">{sold}</p></div>
+                      <div><p className="text-xs text-[#55545e]">남은</p><p className={`text-lg font-bold tabular-nums ${left === 0 ? "text-red-600" : ""}`}>{left}</p></div>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-neutral-100">
+                      <div className="h-full rounded-full bg-[#6d53f1]" style={{ width: `${rate}%` }} />
+                    </div>
+                    <p className="mt-2 flex justify-between text-xs text-[#55545e]">
+                      <span>판매율 {rate}%</span>
+                      <span className="font-semibold text-black">{revenue.toLocaleString("ko-KR")}원</span>
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
