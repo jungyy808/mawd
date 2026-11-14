@@ -31,10 +31,14 @@ export default function ReportPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="현장 매출" value={won(r.revenue)} sub={`판매 ${r.sold_qty}개`} />
         <Kpi label="실제 행사 손익" value={signedWon(r.profit)} sub={r.basis} tone={r.profit < 0 ? "red" : "green"} />
+        <Kpi label="판매 목표 달성률" value={r.achievement_rate != null ? `${Math.round(r.achievement_rate * 100)}%` : "미설정"}
+          sub={r.target_is_set ? `목표 ${r.target_qty}개 중 ${r.sold_qty}개 판매` : "예산·손익에서 목표 이익을 정하면 계산돼요"} />
         <Kpi label="재고 잔량" value={`${r.remaining_qty}개`} sub={r.stock.map((s) => `${s.name} ${s.remaining}`).join(" · ") || "-"} />
-        <Kpi label="결제 수단" value={Object.keys(r.by_payment).length ? `${Object.keys(r.by_payment).length}종` : "-"} sub={Object.entries(r.by_payment).map(([k, v]) => `${k} ${won(v)}`).join(" · ") || "판매 기록 없음"} />
       </div>
 
+      {Object.keys(r.by_payment).length > 0 && (
+        <p className="text-sm text-neutral-600">결제 수단 · {Object.entries(r.by_payment).map(([k, v]) => `${k} ${won(v)}`).join(" · ")}</p>
+      )}
       <Card title="상품별 판매">
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-neutral-500"><tr><th className="py-1">상품</th><th className="text-right">준비</th><th className="text-right">판매</th><th className="text-right">잔여</th><th className="text-right">매출</th></tr></thead>

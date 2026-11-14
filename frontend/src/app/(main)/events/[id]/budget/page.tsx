@@ -15,9 +15,10 @@ export default function BudgetPage() {
   const [editing, setEditing] = useState(false);
 
   const load = useCallback(() => {
-    api<BudgetOut>(`${url}/budget`).then(setB).catch((e) => setError(e.message));
+    api<BudgetOut>(`${url}/budget`).then((r) => { setB(r); if (!r.has_budget) setEditing(true); }).catch((e) => setError(e.message));
   }, [url]);
   useEffect(load, [load]);
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("edit")) setEditing(true); }, []);
 
   const run = async (p: Promise<BudgetOut>): Promise<boolean> => {
     setError("");
@@ -33,7 +34,22 @@ export default function BudgetPage() {
         <p className="mt-1 text-sm text-neutral-500">준비 수량에 비례해 판매된다고 가정한 예상치입니다.</p>
       </div>
       {error && <ErrorBox message={error} />}
-      <BudgetUsage b={b} />
+      {!b.has_budget && (
+        <div className="rounded-xl border border-[#6d53f1]/30 bg-[#6d53f1]/5 p-4 text-sm">
+          <p className="font-semibold text-[#6d53f1]">예산 입력하고 손익분기점을 알아봐요.</p>
+          <p className="mt-1 text-neutral-600">아래에서 지출 항목(예: 부스 참가비, 집기 대여, 운송비, 홍보비)과 상품 원가를 넣으면 계산돼요.</p>
+        </div>
+      )}
+      {b.has_budget && <BudgetUsage b={b} />}
+      {b.sold_qty > 0 && (
+        <Card title="손익분기까지 남은 판매량">
+          <p className="text-3xl font-bold">{b.remaining_to_bep === 0 ? "손익분기 달성!" : `${b.remaining_to_bep ?? "-"}개 더 팔면 돼요`}</p>
+          <p className="mt-2 text-sm text-neutral-500">
+            지금까지 {b.sold_qty}개 판매 · 누적 공헌이익 {won(b.contribution_so_far)} · ({won(b.budget)} − {won(b.contribution_so_far)}) ÷ 평균 개당 이익 {won(b.avg_unit_margin)} · 올림
+          </p>
+          <p className="mt-1 text-xs text-neutral-400">앞으로도 준비 수량 비율대로 팔린다고 가정한 추정치예요.</p>
+        </Card>
+      )}
       <div className="grid gap-3 md:grid-cols-2">
         <Card title="예산 기준">
           <p className="text-3xl font-bold">{b.bep_budget != null ? `${b.bep_budget}개 판매 필요` : "-"}</p>

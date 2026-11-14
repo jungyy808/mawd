@@ -150,6 +150,10 @@ def _clip(text: str, n: int) -> str:
 
 @router.post("/naver/draft", response_model=NaverDraftOut, summary="AI 파워링크 캠페인 초안 (등록은 안 함)")
 def naver_draft(body: NaverDraftIn, store: dict = Depends(current_store)):
+    if body.start_date and body.end_date and body.start_date > body.end_date:
+        raise HTTPException(422, {"code": "invalid_period", "message": "종료일이 시작일보다 빨라요. 기간을 확인해 주세요."})
+    if body.daily_budget <= 0:
+        raise HTTPException(422, {"code": "invalid_budget", "message": "일예산을 입력해 주세요."})
     ev, products = None, []
     if body.event_id:
         ev = db.get_event(store["id"], body.event_id)
@@ -162,7 +166,10 @@ def naver_draft(body: NaverDraftIn, store: dict = Depends(current_store)):
     warnings, is_fallback = [], False
     try:
         data = llm.generate_json(NAVER_DRAFT_SYSTEM,
-                                 naver_draft_user_prompt(store, ev, products, body.goal, body.product_name))
+                                 naver_draft_user_prompt(store, ev, products,
+                                                         f"{body.goal}" + (f" / 강조할 내용: {body.emphasis}" if body.emphasis else "")
+                                                         + (f" / 광고 기간: {body.start_date}~{body.end_date}" if body.start_date else ""),
+                                                         body.product_name))
         keywords = []
         for k in data.get("keywords", [])[:8]:
             kw = str(k.get("keyword", "")).replace(" ", "").strip()
@@ -240,26 +247,41 @@ def naver_register(body: NaverRegisterIn, store: dict = Depends(current_store)):
     cid = conn["customer_id"]
     steps: list[RegisterStep] = []
 
+    # 같은 신청(request_id)을 다시 보내면: 완료된 건 저장된 결과를 그대로, 중간에 멈춘 건 만든 캠페인을 이어서 쓴다
+    prev = db.get_ad_registration(store["id"], body.request_id) if body.request_id else None
+    if prev and prev["status"] == "ok":
+        return NaverRegisterOut.model_validate_json(prev["result"])
+    reuse_campaign = prev["campaign_id"] if prev and prev["campaign_id"] else ""
+
+    def remember(out: NaverRegisterOut) -> NaverRegisterOut:
+        if body.request_id:
+            db.save_ad_registration(store["id"], body.request_id, out.campaign_id, out.status, out.model_dump_json())
+        return out
+
     def fail(step: str, e: Exception, campaign_id: str = "") -> NaverRegisterOut:
         log.warning("파워링크 등록 실패 (%s): %s", step, e)
         steps.append(RegisterStep(step=step, ok=False, message=str(e)))
-        return NaverRegisterOut(status="partial" if campaign_id else "failed", is_sample=False, campaign_id=campaign_id,
+        return remember(NaverRegisterOut(status="partial" if campaign_id else "failed", is_sample=False, campaign_id=campaign_id,
                                 steps=steps, message=f"'{step}' 단계에서 멈췄어요. 이전 단계까지는 네이버에 등록됐어요."
-                                if campaign_id else "네이버에 등록하지 못했어요.")
+                                if campaign_id else "네이버에 등록하지 못했어요."))
 
-    # 1) 캠페인 (중지 상태: userLock=true)
-    try:
-        camp = naver.send_json("POST", "/ncc/campaigns", cid, {
-            "customerId": int(cid), "name": camp_name, "campaignTp": "WEB_SITE",
-            "dailyBudget": body.daily_budget, "useDailyBudget": body.daily_budget > 0, "userLock": True,
-        })
-        campaign_id = camp.get("nccCampaignId", "")
-        if not camp.get("userLock", True):
-            naver.send_json("PUT", f"/ncc/campaigns/{campaign_id}", cid,
-                            {"nccCampaignId": campaign_id, "userLock": True}, {"fields": "userLock"})
-        steps.append(RegisterStep(step="캠페인 생성 (중지)", ok=True, message=camp_name, id=campaign_id))
-    except naver.NaverError as e:
-        return fail("캠페인 생성 (중지)", e)
+    # 1) 캠페인 (중지 상태: userLock=true) — 이전 시도에서 만든 캠페인이 있으면 재사용
+    if reuse_campaign:
+        campaign_id = reuse_campaign
+        steps.append(RegisterStep(step="캠페인 생성 (중지)", ok=True, message="이전 신청에서 만든 캠페인 사용", id=campaign_id))
+    else:
+        try:
+            camp = naver.send_json("POST", "/ncc/campaigns", cid, {
+                "customerId": int(cid), "name": camp_name, "campaignTp": "WEB_SITE",
+                "dailyBudget": body.daily_budget, "useDailyBudget": body.daily_budget > 0, "userLock": True,
+            })
+            campaign_id = camp.get("nccCampaignId", "")
+            if not camp.get("userLock", True):
+                naver.send_json("PUT", f"/ncc/campaigns/{campaign_id}", cid,
+                                {"nccCampaignId": campaign_id, "userLock": True}, {"fields": "userLock"})
+            steps.append(RegisterStep(step="캠페인 생성 (중지)", ok=True, message=camp_name, id=campaign_id))
+        except naver.NaverError as e:
+            return fail("캠페인 생성 (중지)", e)
 
     # 2) 비즈채널 (웹사이트) — 광고그룹에 꼭 필요
     try:
@@ -307,8 +329,8 @@ def naver_register(body: NaverRegisterIn, store: dict = Depends(current_store)):
     except naver.NaverError as e:
         return fail("광고 문구 등록", e, campaign_id)
 
-    return NaverRegisterOut(status="ok", is_sample=False, campaign_id=campaign_id, steps=steps,
-                            message="네이버에 중지 상태로 등록했어요. 광고비는 나가지 않아요. 집행하려면 네이버 광고 관리자에서 직접 켜세요.")
+    return remember(NaverRegisterOut(status="ok", is_sample=False, campaign_id=campaign_id, steps=steps,
+                            message="네이버에 중지 상태로 등록했어요. 광고비는 나가지 않아요. 집행하려면 네이버 광고 관리자에서 직접 켜세요."))
 
 
 # ---------- 메타·당근 데모 ----------

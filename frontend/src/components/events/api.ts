@@ -214,13 +214,15 @@ export interface BudgetOut {
   products: BudgetProduct[]; prepared_total: number; expected_revenue: number; expected_cost: number;
   avg_unit_margin: number; bep_budget: number | null; bep_actual: number | null; target_qty: number | null;
   full_sale_profit: number; basis: string; warnings: string[];
+  has_budget: boolean; sold_qty: number; contribution_so_far: number; remaining_to_bep: number | null;
 }
 export interface StockRow { product_id: string; name: string; price: number; prepared_qty: number; sold_qty: number; remaining: number }
 export interface SaleOut { id: string; payment_method: string; total: number; created_at: string; items: { product_id: string; name: string; qty: number; price: number }[] }
 export interface SalesOut { sales: SaleOut[]; stock: StockRow[]; total_revenue: number; total_qty: number }
 export interface ReportOut {
   revenue: number; sold_qty: number; goods_cost: number; expenses: number; profit: number; remaining_qty: number;
-  stock: StockRow[]; target_qty: number | null; gap_qty: number | null; by_payment: Record<string, number>; basis: string;
+  stock: StockRow[]; target_qty: number | null; gap_qty: number | null; achievement_rate: number | null; target_is_set: boolean;
+  by_payment: Record<string, number>; basis: string;
 }
 export const PAY_LABEL: Record<string, string> = { card: "카드", cash: "현금", transfer: "계좌이체" };
 export const signedWon = (n: number) => (n < 0 ? `−${won(-n)}` : won(n));

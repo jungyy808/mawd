@@ -7,7 +7,8 @@ import type { NaverDraft, NaverRegisterOut } from "./types";
 
 export default function DraftCard({ eventId }: { eventId?: string }) {
   const [events, setEvents] = useState<EventOut[]>([]);
-  const [form, setForm] = useState({ event_id: "", goal: "행사 방문", product_name: "", daily_budget: 10000, landing_url: "" });
+  const [form, setForm] = useState({ event_id: "", goal: "행사 방문", product_name: "", daily_budget: 10000, landing_url: "", start_date: "", end_date: "", emphasis: "" });
+  const [requestId, setRequestId] = useState(""); // 같은 초안의 신청 재시도는 같은 키 → 네이버에 중복 등록 안 됨
   const [draft, setDraft] = useState<NaverDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +25,7 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
       setReg(await api<NaverRegisterOut>("/api/ads/naver/register", {
         method: "POST",
         json: {
-          campaign_name: draft.campaign_name, adgroup_name: draft.adgroup_name,
+          request_id: requestId, campaign_name: draft.campaign_name, adgroup_name: draft.adgroup_name,
           keywords: draft.keywords.map(({ keyword, bid }) => ({ keyword, bid })),
           title: draft.title, description: draft.description, daily_budget: draft.daily_budget, landing_url: draft.landing_url,
         },
@@ -38,7 +39,8 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
     api<EventOut[]>("/api/events").then((evs) => {
       setEvents(evs);
       const ev = eventId ? evs.find((e) => e.id === eventId) : undefined;
-      if (ev) setForm((f) => ({ ...f, event_id: ev.id, landing_url: `${publicOrigin()}/e/${ev.id}`, product_name: ev.products[0]?.name ?? "" }));
+      if (ev) setForm((f) => ({ ...f, event_id: ev.id, landing_url: `${publicOrigin()}/e/${ev.id}`, product_name: ev.products[0]?.name ?? "",
+        end_date: ev.start_date ?? "", start_date: new Date().toISOString().slice(0, 10) }));
     }).catch(() => {});
   }, [eventId]);
   const pickEvent = (id: string) => {
@@ -47,13 +49,21 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
       ...f, event_id: id,
       landing_url: id ? `${publicOrigin()}/e/${id}` : f.landing_url,
       product_name: f.product_name || ev?.products[0]?.name || "",
+      end_date: ev?.start_date ?? f.end_date,
     }));
   };
 
+  // 생성 전에 막을 것: 기간 역전, 일예산·강조 내용 누락
+  const invalid = !form.emphasis.trim() ? "강조할 내용을 입력해 주세요." :
+    form.daily_budget <= 0 ? "일예산을 입력해 주세요." :
+    form.start_date && form.end_date && form.start_date > form.end_date ? "종료일이 시작일보다 빨라요." : "";
+
   const make = async () => {
+    if (invalid) { setError(invalid); return; }
     setBusy(true); setError("");
     setReg(null); setApprove(false); setAgreed(false);
-    try { setDraft(await api<NaverDraft>("/api/ads/naver/draft", { method: "POST", json: { ...form, event_id: form.event_id || null } })); }
+    setRequestId(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()));
+    try { setDraft(await api<NaverDraft>("/api/ads/naver/draft", { method: "POST", json: { ...form, event_id: form.event_id || null, start_date: form.start_date || null, end_date: form.end_date || null } })); }
     catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   };
@@ -81,7 +91,19 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
           </select>
         </Field>
         <Field label="광고 상품"><input className={inputCls} placeholder="예: 포켓 노트" value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} /></Field>
-        <Field label="일 예산 (원)"><input className={inputCls} type="number" value={form.daily_budget} onChange={(e) => setForm({ ...form, daily_budget: Number(e.target.value || 0) })} /></Field>
+        <Field label="일예산 (원)" required><input className={inputCls} type="number" value={form.daily_budget} onChange={(e) => setForm({ ...form, daily_budget: Number(e.target.value || 0) })} /></Field>
+        <Field label="광고 기간 (KST)">
+          <div className="flex items-center gap-2">
+            <input className={inputCls} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+            <span className="text-neutral-400">~</span>
+            <input className={inputCls} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+          </div>
+        </Field>
+        <div className="md:col-span-2">
+          <Field label="강조할 내용" required hint="예: 현장 한정 10% 할인, 신상 포켓 노트 첫 공개, 2개 구매 시 스티커 증정">
+            <input className={inputCls} placeholder="광고 문구에서 꼭 말하고 싶은 것" value={form.emphasis} onChange={(e) => setForm({ ...form, emphasis: e.target.value })} />
+          </Field>
+        </div>
         <div className="md:col-span-2">
           <Field label="연결 URL" hint="행사를 고르면 방문객 안내 페이지 주소가 자동으로 들어가요">
             <input className={inputCls} placeholder="https://…" value={form.landing_url} onChange={(e) => setForm({ ...form, landing_url: e.target.value })} />
@@ -165,7 +187,7 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
 
           {draft.warnings.length > 0 && <ul className="space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">{draft.warnings.map((w) => <li key={w}>• {w}</li>)}</ul>}
           <div className="flex flex-wrap gap-2">
-            {!reg && <Button onClick={() => { setApprove(true); setAgreed(false); }} disabled={approve}>네이버에 중지 상태로 등록</Button>}
+            {!reg && <Button onClick={() => { setApprove(true); setAgreed(false); }} disabled={approve}>광고 신청하기</Button>}
             <Button variant="secondary" onClick={copyText}>{copied ? "복사됨 ✓" : "초안 복사"}</Button>
           </div>
 
@@ -183,7 +205,7 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
                 <span>네이버에 <b>중지 상태</b>로 등록되며 광고비는 나가지 않아요. 집행은 네이버 광고 관리자에서 제가 직접 켭니다.</span>
               </label>
               <div className="mt-3 flex gap-2">
-                <Button onClick={register} disabled={!agreed || registering}>{registering ? "등록 중…" : "승인하고 등록"}</Button>
+                <Button onClick={register} disabled={!agreed || registering}>{registering ? "신청 중…" : "승인하고 신청"}</Button>
                 <Button variant="ghost" onClick={() => setApprove(false)}>취소</Button>
               </div>
             </div>
@@ -192,7 +214,7 @@ export default function DraftCard({ eventId }: { eventId?: string }) {
           {reg && (
             <div className={`rounded-lg border p-4 text-sm ${reg.status === "ok" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
               <p className="font-semibold">
-                {reg.status === "ok" ? "등록 완료" : reg.status === "partial" ? "일부만 등록됐어요" : "등록하지 못했어요"}
+                {reg.status === "ok" ? "신청 완료 · 중지 상태로 등록됨" : reg.status === "partial" ? "일부만 등록됐어요" : "신청하지 못했어요"}
                 {reg.is_sample && <Badge tone="amber">샘플</Badge>}
               </p>
               <ul className="mt-2 space-y-1">

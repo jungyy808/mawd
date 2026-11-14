@@ -209,6 +209,21 @@ def init_db() -> None:
             )
             """
         )
+        sale_cols = {r[1] for r in conn.execute("PRAGMA table_info(event_sale_items)")}
+        if "cost" not in sale_cols:
+            conn.execute("ALTER TABLE event_sale_items ADD COLUMN cost INTEGER NOT NULL DEFAULT 0")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ad_registrations (
+                request_id TEXT PRIMARY KEY,
+                store_id TEXT NOT NULL,
+                campaign_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                result TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         cols = {r[1] for r in conn.execute("PRAGMA table_info(products)")}
         for col, ddl in _PRODUCT_EXTRA_COLUMNS.items():
             if col not in cols:
@@ -530,8 +545,8 @@ def add_sale(event_id: str, payment_method: str, items: list[dict]) -> str:
             (sale_id, event_id, payment_method, total, _now()),
         )
         conn.executemany(
-            "INSERT INTO event_sale_items (sale_id, event_id, product_id, qty, price) VALUES (?, ?, ?, ?, ?)",
-            [(sale_id, event_id, i["product_id"], i["qty"], i["price"]) for i in items],
+            "INSERT INTO event_sale_items (sale_id, event_id, product_id, qty, price, cost) VALUES (?, ?, ?, ?, ?, ?)",
+            [(sale_id, event_id, i["product_id"], i["qty"], i["price"], i.get("cost", 0)) for i in items],
         )
     return sale_id
 
@@ -557,3 +572,27 @@ def delete_sale(event_id: str, sale_id: str) -> bool:
         cur = conn.execute("DELETE FROM event_sales WHERE id = ? AND event_id = ?", (sale_id, event_id))
         conn.execute("DELETE FROM event_sale_items WHERE sale_id = ?", (sale_id,))
     return cur.rowcount > 0
+
+
+def sold_contribution(event_id: str) -> tuple[int, int, int]:
+    """(판매 수량, 판매 당시 가격 기준 매출, 판매 당시 원가 합계)"""
+    with get_conn() as conn:
+        r = conn.execute("SELECT COALESCE(SUM(qty),0), COALESCE(SUM(qty*price),0), COALESCE(SUM(qty*cost),0) FROM event_sale_items WHERE event_id = ?",
+                         (event_id,)).fetchone()
+    return int(r[0]), int(r[1]), int(r[2])
+
+
+# ---------- 광고 신청 기록 (중복 등록 방지) ----------
+
+def get_ad_registration(store_id: str, request_id: str) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM ad_registrations WHERE request_id = ? AND store_id = ?", (request_id, store_id)).fetchone()
+    return dict(row) if row else None
+
+
+def save_ad_registration(store_id: str, request_id: str, campaign_id: str, status: str, result: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO ad_registrations (request_id, store_id, campaign_id, status, result, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (request_id, store_id, campaign_id, status, result, _now()),
+        )

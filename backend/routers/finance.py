@@ -64,6 +64,14 @@ def _budget_out(ev: dict) -> BudgetOut:
     if bep_budget is not None and prepared_total and bep_budget > prepared_total:
         warnings.append(f"예산 기준 손익분기({bep_budget}개)가 준비 수량({prepared_total}개)보다 많아요.")
 
+    sold_qty, sold_rev, sold_cost = db.sold_contribution(ev["id"])
+    contribution = sold_rev - sold_cost
+    if sold_qty and avg_margin > 0:
+        remaining = max(0, math.ceil((budget - contribution) / avg_margin))
+    else:
+        remaining = bep_budget
+    has_budget = bool(ev.get("budget")) or bool(expenses)
+
     ratio = " : ".join(str(round(p.prepared_qty * 100 / prepared_total)) for p in products) if prepared_total else "-"
     return BudgetOut(
         budget=budget, target_profit=target,
@@ -77,6 +85,7 @@ def _budget_out(ev: dict) -> BudgetOut:
         full_sale_profit=revenue - goods_cost - budget,
         basis=f"준비한 {prepared_total}개 기준 예상 매출 {_won(revenue)} · 상품 원가 {_won(goods_cost)} · 판매 비중 {ratio} → 평균 개당 이익 {_won(avg_margin)}",
         warnings=warnings,
+        has_budget=has_budget, sold_qty=sold_qty, contribution_so_far=contribution, remaining_to_bep=remaining,
     )
 
 
@@ -154,7 +163,8 @@ def add_sale(event_id: str, body: SaleIn, store: dict = Depends(current_store)):
             raise HTTPException(400, {"code": "product_not_in_event", "message": "이 행사에 연결된 상품이 아니에요"})
         if it.qty > row.remaining:
             raise HTTPException(400, {"code": "over_stock", "message": f"{row.name}의 남은 재고({row.remaining}개)보다 많아요. 수량을 수정하세요."})
-        items.append({"product_id": it.product_id, "qty": it.qty, "price": row.price})
+        cost = next((p.get("cost") or 0 for p in db.get_event_products(event_id) if p["id"] == it.product_id), 0)
+        items.append({"product_id": it.product_id, "qty": it.qty, "price": row.price, "cost": cost})
     db.add_sale(event_id, body.payment_method, items)
     return _sales_out(event_id)
 
@@ -174,18 +184,18 @@ def get_report(event_id: str, store: dict = Depends(current_store)):
     ev = _event_or_404(store["id"], event_id)
     sales = _sales_out(event_id)
     budget = _budget_out(ev)
-    cost_by = {p.product_id: p.cost for p in budget.products}
-    goods_cost = sum(r.sold_qty * cost_by.get(r.product_id, 0) for r in sales.stock)
+    _, _, goods_cost = db.sold_contribution(event_id)  # 판매 당시 원가로 집계
     spend = budget.actual_total or budget.budget
     profit = sales.total_revenue - goods_cost - spend
     by_pay: dict[str, int] = {}
     for s in sales.sales:
         label = PAY_LABEL.get(s.payment_method, s.payment_method)
         by_pay[label] = by_pay.get(label, 0) + s.total
-    target = budget.target_qty or budget.bep_budget
+    target = budget.target_qty  # 목표 이익으로 정한 목표 판매량 (없으면 미설정)
     return ReportOut(
         revenue=sales.total_revenue, sold_qty=sales.total_qty, goods_cost=goods_cost, expenses=spend,
         profit=profit, remaining_qty=sum(r.remaining for r in sales.stock), stock=sales.stock,
         target_qty=target, gap_qty=(target - sales.total_qty) if target else None, by_payment=by_pay,
+        achievement_rate=round(sales.total_qty / target, 4) if target else None, target_is_set=bool(target),
         basis=f"{_won(sales.total_revenue)} − 원가 {_won(goods_cost)} − 행사비 {_won(spend)}",
     )

@@ -49,12 +49,27 @@ export default function EventOverviewPage() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="손익분기점" value={b?.bep_budget != null ? `${b.bep_budget}개` : "-"} sub={b?.prepared_total ? "준비 수량의 판매 구성 기준" : "상품·원가를 넣으면 계산돼요"} />
-        <Kpi label="목표 판매량" value={b?.target_qty != null ? `${b.target_qty}개` : "-"} sub={b?.target_profit ? `목표 이익 ${won(b.target_profit)}` : "예산·손익에서 목표 이익 입력"} />
-        <Kpi label="예산" value={b ? won(b.budget) : "-"} sub={b ? `지급한 행사비 ${won(b.actual_total)}` : ""} />
-        <Kpi label="행사 재고 계획" value={b ? `${b.prepared_total}개` : "-"} sub={extra ? `목표까지 ${extra}개 추가 계획 필요` : "판매 상품 준비 수량 합계"} />
-      </div>
+      {b && !b.has_budget ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#6d53f1] px-6 py-6 text-white">
+          <div>
+            <p className="text-xl font-bold">예산 입력하고 손익분기점을 알아봐요.</p>
+            <p className="mt-1 text-sm text-white/80">참가비·운송비 같은 지출과 상품 원가를 넣으면 몇 개를 팔아야 하는지 바로 계산해 드려요.</p>
+          </div>
+          <Link href={`/events/${ev.id}/budget?edit=1`} className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-[#6d53f1]">예산 입력하기</Link>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {b && b.sold_qty > 0 ? (
+            <Kpi label="손익분기까지" value={b.remaining_to_bep != null ? `${b.remaining_to_bep}개` : "-"} sub={b.remaining_to_bep === 0 ? "손익분기를 넘었어요" : `지금까지 ${b.sold_qty}개 판매 · 향후 판매 비중 가정`} />
+          ) : (
+            <Kpi label="손익분기점" value={b?.bep_budget != null ? `${b.bep_budget}개` : "-"} sub={b?.prepared_total ? "준비 수량의 판매 구성 기준" : "상품·원가를 넣으면 계산돼요"} />
+          )}
+          <Kpi label="목표 판매량" value={b?.target_qty != null ? `${b.target_qty}개` : "-"} sub={b?.target_profit ? `목표 이익 ${won(b.target_profit)}` : "예산·손익에서 목표 이익 입력"} />
+          <Kpi label="예산" value={b ? won(b.budget) : "-"} sub={b ? `지급한 행사비 ${won(b.actual_total)}` : ""} />
+          <Kpi label="행사 재고 계획" value={b ? `${b.prepared_total}개` : "-"} sub={extra ? `목표까지 ${extra}개 추가 계획 필요` : "판매 상품 준비 수량 합계"} />
+        </div>
+      )}
+      {b?.has_budget && <p className="-mt-2 text-xs text-neutral-500">예상치는 준비 수량을 전부 판매한다고 가정한 값이에요.</p>}
 
       <Card title="다음 할 일">
         <div className="space-y-3">

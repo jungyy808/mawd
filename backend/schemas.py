@@ -348,6 +348,7 @@ class NaverDraftIn(BaseModel):
     landing_url: str = Field("", description="연결 URL (예: 방문객용 안내 페이지)")
     start_date: str | None = None
     end_date: str | None = None
+    emphasis: str = Field("", description="강조할 내용 (예: 현장 한정 할인, 신상 포켓 노트)")
 
 
 class DraftKeyword(BaseModel):
@@ -501,6 +502,10 @@ class BudgetOut(BaseModel):
     full_sale_profit: int = Field(description="준비 수량 전량 판매 시 예상 손익")
     basis: str
     warnings: list[str] = Field(default_factory=list)
+    has_budget: bool = Field(True, description="예산·지출을 한 번이라도 입력했는지 (미입력이면 개요에 입력 안내)")
+    sold_qty: int = 0
+    contribution_so_far: int = Field(0, description="누적 공헌이익 = Σ 실판매 × (판매 당시 판매가 − 판매 당시 원가)")
+    remaining_to_bep: int | None = Field(None, description="손익분기까지 남은 예상 판매량 (판매 전이면 예산 기준 손익분기)")
 
 
 # ---------- 현장 판매 (Figma: 42 현장 판매 입력) ----------
@@ -558,6 +563,8 @@ class ReportOut(BaseModel):
     stock: list[StockRow]
     target_qty: int | None
     gap_qty: int | None = Field(description="목표 대비 차이 (목표 − 판매)")
+    achievement_rate: float | None = Field(None, description="목표 달성률 0~1 (목표 미설정이면 null)")
+    target_is_set: bool = False
     by_payment: dict[str, int]
     basis: str
 
@@ -565,6 +572,7 @@ class ReportOut(BaseModel):
 # ---------- 네이버 파워링크 등록 (Figma: 12 파워링크 등록 승인) ----------
 
 class NaverRegisterIn(BaseModel):
+    request_id: str = Field("", description="중복 등록 방지 키 (같은 초안의 재시도는 같은 값)")
     campaign_name: str = Field(..., min_length=1)
     adgroup_name: str = Field("기본 그룹")
     keywords: list[DraftKeyword] = Field(default_factory=list)
