@@ -49,12 +49,14 @@ export default function EventShell({ children }: { children: ReactNode }) {
     <EventCtx.Provider value={{ ev, reload, patch }}>
       <div className="mx-auto max-w-[1128px]">
         <Link href="/events" className="block text-sm text-neutral-700">〈 내 행사</Link>
-        <span className="mt-3 inline-block rounded-md bg-neutral-100 px-2 py-1 text-xs text-neutral-700">{phaseLabel(ev)}</span>
-        <h1 className="mt-2 text-3xl font-bold text-neutral-900">{ev.name}</h1>
-        <p className="mt-2 text-sm text-neutral-500">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold text-neutral-900">{ev.name}</h1>
+          <span className="rounded-full bg-[#6d53f1] px-4 py-1 text-sm font-semibold text-white">{phaseLabel(ev).replace("준비 중 · ", "")}</span>
+        </div>
+        <p className="mt-2 mb-0 text-sm text-neutral-500 md:mb-6">
           {[fmtRange(ev.start_date, ev.end_date), ev.location].filter(Boolean).join(" · ")}
         </p>
-        <nav className="mt-4 mb-5 grid grid-cols-4 gap-1.5 md:grid-cols-7">
+        <nav className="mt-4 mb-5 grid grid-cols-4 gap-1.5 md:hidden">
           {TABS.map((t) => {
             const active = current === t.seg || (t.also?.includes(current) ?? false);
             return (
@@ -62,7 +64,7 @@ export default function EventShell({ children }: { children: ReactNode }) {
                 key={t.label}
                 href={t.seg ? `${base}/${t.seg}` : base}
                 className={`flex h-10 items-center justify-center rounded-lg border text-[13px] font-medium whitespace-nowrap ${
-                  active ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400"
+                  active ? "border-[#6d53f1] bg-[#6d53f1] text-white" : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400"
                 }`}
               >
                 {t.label}

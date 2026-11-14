@@ -3,7 +3,8 @@
 // 색: 보라 #6d53f1 (로고·선택된 메뉴), 회색 #9998a4 (선택 안 된 행사 이름).
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { api, type EventOut } from "@/components/events/api";
 // Figma에서 받은 아이콘 원본 (src/assets/nav). import하면 { src, width, height }가 들어온다.
 import homeIcon from "@/assets/nav/home.svg";
@@ -29,16 +30,32 @@ const ITEMS: { label: string; icon: { src: string }; href?: string; seg?: string
   { label: "리포트", icon: reportIcon, seg: "report" },
 ];
 
-// 지금 보는 행사: 행사 화면이면 그 행사, 아니면 끝나지 않은 첫 행사.
-function pickCurrent(events: EventOut[] | null, pathname: string): EventOut | undefined {
+const PICK_KEY = "mawd_current_event"; // 사이드바에서 고른 행사 (행사 화면 밖에서도 유지)
+function readPick(): string | null {
+  try { return localStorage.getItem(PICK_KEY); } catch { return null; }
+}
+function savePick(id: string) {
+  try { localStorage.setItem(PICK_KEY, id); } catch {}
+}
+
+// 지금 행사: 행사 화면이면 그 행사 → 사이드바에서 고른 행사 → 끝나지 않은 첫 행사.
+function pickCurrent(events: EventOut[] | null, pathname: string, picked: string | null): EventOut | undefined {
   if (!events) return undefined;
-  return events.find((e) => pathname.startsWith(`/events/${e.id}`)) ?? events.find((e) => e.status !== "done") ?? events[0];
+  return (
+    events.find((e) => pathname === `/events/${e.id}` || pathname.startsWith(`/events/${e.id}/`)) ??
+    events.find((e) => e.id === picked) ??
+    events.find((e) => e.status !== "done") ??
+    events[0]
+  );
 }
 
 export default function SideNav() {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   const [events, setEvents] = useState<EventOut[] | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
 
+  useEffect(() => { setPicked(readPick()); }, []);
   useEffect(() => {
     let alive = true;
     api<EventOut[]>("/api/events")
@@ -50,17 +67,24 @@ export default function SideNav() {
     // 새 행사를 만들거나 지웠을 때 목록이 바뀌도록 경로가 바뀔 때마다 다시 불러온다.
   }, [pathname]);
 
-  const current = pickCurrent(events, pathname);
+  const current = pickCurrent(events, pathname, picked);
   const base = current ? `/events/${current.id}` : "";
   // 행사 안에서 지금 보고 있는 탭 (예: /events/ev_1/budget → "budget", 개요면 "")
-  const tab = base && pathname.startsWith(base) ? (pathname.slice(base.length).split("/")[1] ?? "") : null;
+  const tab = base && (pathname === base || pathname.startsWith(`${base}/`)) ? (pathname.slice(base.length).split("/")[1] ?? "") : null;
+
+  // 행사를 고르면: 행사 화면을 보고 있었으면 같은 메뉴로, 아니면 화면은 그대로 두고 선택만 바꾼다.
+  const choose = (id: string) => {
+    savePick(id);
+    setPicked(id);
+    if (tab !== null) router.push(tab ? `/events/${id}/${tab === "products" ? "stock" : tab}` : `/events/${id}`);
+  };
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 overflow-y-auto bg-white pt-[34px] pb-6 md:block">
       <Link href="/home" className="ml-[33px] block w-fit text-2xl leading-normal font-bold text-[#6d53f1]">
         BOOTHY
       </Link>
-      <EventSwitcher events={events} current={current} />
+      <EventSwitcher events={events} current={current} onChoose={choose} />
       <nav aria-label="서비스 메뉴" className="mt-[27px] mr-[17px] ml-[21px] flex flex-col gap-[27px]">
         {ITEMS.map(({ label, icon, href: fixed, seg, also }) => {
           const href = seg ? (current ? `${base}/${seg}` : events ? "/events/new" : undefined) : fixed;
@@ -97,47 +121,61 @@ export default function SideNav() {
   );
 }
 
-// 행사 선택 상자: 맨 위가 지금 보는 행사, 아래는 다른 행사. 화살표로 접고 편다.
-function EventSwitcher({ events, current }: { events: EventOut[] | null; current: EventOut | undefined }) {
-  const [open, setOpen] = useState(true);
+// 행사 선택 상자 (Figma: 행사 선택): 지금 행사 이름을 누르면 목록이 열리고, 고르면 그 행사로 바뀐다.
+function EventSwitcher({ events, current, onChoose }: { events: EventOut[] | null; current: EventOut | undefined; onChoose: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
 
   if (!events) return <div className="mt-[27px] mr-[17px] ml-[21px] h-[51px] rounded-[7px] bg-[#6d53f1]/10" />;
-  const others = events.filter((e) => e.id !== current?.id);
+  if (!current) {
+    return (
+      <Link href="/events/new" className="mt-[27px] mr-[17px] ml-[21px] block rounded-[7px] bg-[#6d53f1]/10 px-[18px] py-[14px] font-semibold text-black">
+        ＋ 첫 행사 등록하기
+      </Link>
+    );
+  }
+  const others = events.filter((e) => e.id !== current.id);
 
   return (
-    <div className="mt-[27px] mr-[17px] ml-[21px] rounded-[7px] bg-[#6d53f1]/10 pt-[14px] pr-[13px] pb-[15px] pl-[18px] text-base leading-normal">
-      {current ? (
-        <div className="flex items-center gap-2">
-          <Link href={`/events/${current.id}`} className="min-w-0 flex-1 truncate font-semibold text-black">
-            {current.name}
-          </Link>
-          {others.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              aria-expanded={open}
-              aria-label="다른 행사 목록"
-              className="flex h-5 w-5 shrink-0 items-center justify-center"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={chevronIcon.src} alt="" className={open ? "rotate-90 -scale-x-100" : "rotate-180"} />
-            </button>
-          )}
-        </div>
-      ) : (
-        <Link href="/events/new" className="block font-semibold text-black">
-          ＋ 첫 행사 등록하기
-        </Link>
-      )}
-      {open && others.length > 0 && (
-        <ul className="mt-[22px] flex flex-col gap-[14px] font-medium text-[#9998a4]">
+    <div ref={box} className="relative mt-[27px] mr-[17px] ml-[21px] text-base leading-normal">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        title="행사 선택"
+        className="flex w-full items-center gap-2 rounded-[7px] bg-[#6d53f1]/10 py-[12px] pr-[13px] pl-[18px] text-left hover:bg-[#6d53f1]/15"
+      >
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-black">{current.name}</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <span className={`flex shrink-0 transition ${open ? "rotate-180" : ""}`}>
+          <img src={chevronIcon.src} alt="" className="rotate-90 -scale-x-100" />
+        </span>
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute top-full right-0 left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-[7px] border border-neutral-200 bg-white py-1 shadow-lg">
+          <li role="option" aria-selected="true" className="flex items-center gap-2 px-4 py-2.5 font-semibold text-[#6d53f1]">
+            <span className="min-w-0 flex-1 truncate">{current.name}</span>✓
+          </li>
           {others.map((e) => (
-            <li key={e.id}>
-              <Link href={`/events/${e.id}`} className="block truncate hover:text-black">
+            <li key={e.id} role="option" aria-selected="false">
+              <button type="button" onClick={() => { onChoose(e.id); setOpen(false); }} className="block w-full truncate px-4 py-2.5 text-left font-medium text-[#55545e] hover:bg-[#6d53f1]/10 hover:text-black">
                 {e.name}
-              </Link>
+              </button>
             </li>
           ))}
+          <li className="border-t border-neutral-100">
+            <Link href="/events/new" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-black hover:bg-[#6d53f1]/10">
+              ＋ 새 행사 만들기
+            </Link>
+          </li>
         </ul>
       )}
     </div>

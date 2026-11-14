@@ -1,11 +1,20 @@
 "use client";
-// Figma 02 · 홈 / 내 행사
+// Figma 디자인 · 내 행사 (BOOTHY)
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type BudgetOut, type EventOut, type Phase, api, fmtRange, phaseLabel, phaseOf } from "@/components/events/api";
-import { Button, Empty, ErrorBox, Spinner } from "@/components/events/ui";
+import { Empty, ErrorBox, Spinner } from "@/components/events/ui";
 
 const FILTERS: ("전체" | Phase)[] = ["전체", "준비 중", "운영 중", "종료"];
+const PURPLE = "#6d53f1";
+
+function Calendar() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
 
 export default function MyEventsPage() {
   const [events, setEvents] = useState<EventOut[] | null>(null);
@@ -28,30 +37,59 @@ export default function MyEventsPage() {
 
   return (
     <div className="mx-auto max-w-[1128px]">
-      <h1 className="text-3xl font-bold text-neutral-900">내 행사</h1>
-      <p className="mt-2 text-sm text-neutral-500">진행할 행사를 선택해 준비와 홍보 업무를 관리하세요.</p>
-      <Button href="/events/new" className="mt-4 h-11 w-[190px] justify-start">＋ 행사 생성 ↗</Button>
-      <div className="mt-4 mb-4 flex gap-1.5">
+      <h1 className="text-3xl font-bold text-black">내 행사</h1>
+      <p className="mt-2 text-base text-[#55545e]">진행할 행사를 선택해 준비와 홍보 업무를 관리하세요</p>
+
+      <Link href="/events/new" className="mt-10 inline-flex h-11 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white" style={{ background: PURPLE }}>
+        <span className="text-xl leading-none">＋</span> 행사 생성
+      </Link>
+      <hr className="mt-6 border-[#6d53f1]/30" />
+
+      <div className="mt-4 mb-6 flex gap-2">
         {FILTERS.map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-2.5 py-1 text-xs font-medium ${filter === f ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700"}`}>{f}</button>
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`rounded-full px-4 py-1 text-xs font-medium text-white ${filter === f ? "" : "bg-[#c9c7d6] hover:bg-[#b5b2c6]"}`}
+            style={filter === f ? { background: PURPLE } : undefined}
+          >
+            {f}
+          </button>
         ))}
       </div>
+
       {error && <ErrorBox message={error} onRetry={load} />}
       {!events && !error && <Spinner text="행사를 불러오는 중" />}
       {events && shown.length === 0 && <Empty>{events.length ? "이 단계의 행사가 없어요." : "아직 등록된 행사가 없어요. 행사 생성으로 시작하세요."}</Empty>}
-      <div className="grid gap-3 md:grid-cols-2">
+
+      <div className="space-y-5">
         {shown.map((e) => {
           const b = budgets[e.id];
-          const stats = b ? [b.bep_budget != null && `손익분기점 ${b.bep_budget}개`, b.target_qty != null && `목표 ${b.target_qty}개`, `준비 ${b.prepared_total}개`].filter(Boolean).join(" · ") : "";
+          const label = phaseLabel(e);
+          const pill = label.startsWith("준비 중 · ") ? label.replace("준비 중 · ", "") : label;
+          const stats = b
+            ? [b.bep_budget != null && `손익분기점 ${b.bep_budget}개`, b.target_qty != null && `목표 ${b.target_qty}개`, `준비 ${b.prepared_total}개`].filter(Boolean).join(" · ")
+            : "";
           return (
-            <div key={e.id} className="rounded-xl border border-neutral-200 bg-white p-4">
-              <span className="inline-block rounded-md bg-neutral-100 px-2 py-1 text-xs text-neutral-700">{phaseLabel(e)}</span>
-              <p className="mt-3 text-2xl font-bold">{e.name}</p>
-              <p className="mt-2 text-sm text-neutral-500">{[fmtRange(e.start_date, e.end_date), e.location].filter(Boolean).join(" · ")}</p>
-              <hr className="my-3 border-neutral-200" />
-              {stats && <p className="text-sm text-neutral-700">{stats}</p>}
-              <p className="mt-1 text-sm text-neutral-700">준비 체크리스트 {e.checklist_done} / {e.checklist_total} 완료</p>
-              <Link href={`/events/${e.id}`} className="mt-3 inline-flex h-11 w-[200px] items-center rounded-lg bg-neutral-900 px-3 text-sm font-medium text-white">행사 열기 ↗</Link>
+            <div key={e.id} className="rounded-2xl bg-white px-5 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+              <span className="inline-block rounded-full px-4 py-1 text-sm font-semibold text-white" style={{ background: phaseOf(e) === "종료" ? "#9998a4" : PURPLE }}>
+                {pill}
+              </span>
+              <p className="mt-3 text-xl font-bold text-black">{e.name}</p>
+              <div className="mt-2 flex flex-wrap gap-x-12 gap-y-1 px-3 text-sm text-[#55545e]">
+                <span>{fmtRange(e.start_date, e.end_date) || "날짜 미정"}</span>
+                <span>{e.location || "장소 미정"}</span>
+              </div>
+              <hr className="mt-2 border-[#6d53f1]/30" />
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+                <div className="space-y-1 px-3 text-sm text-[#55545e]">
+                  <p className="flex items-center gap-2 text-black"><Calendar /> 준비 체크리스트 {e.checklist_done} / {e.checklist_total} 완료</p>
+                  {stats && <p>{stats}</p>}
+                </div>
+                <Link href={`/events/${e.id}`} className="inline-flex h-11 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white" style={{ background: PURPLE }}>
+                  <span aria-hidden>↗</span> 행사 바로가기
+                </Link>
+              </div>
             </div>
           );
         })}

@@ -132,7 +132,7 @@ function BudgetUsage({ b }: { b: BudgetOut }) {
         </div>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-neutral-100">
-        <div className={`h-full ${over ? "bg-red-500" : "bg-neutral-900"}`} style={{ width: `${over ? 100 : ratio}%` }} />
+        <div className={`h-full ${over ? "bg-red-500" : "bg-[#6d53f1]"}`} style={{ width: `${over ? 100 : ratio}%` }} />
       </div>
       <p className="mt-1 text-xs text-neutral-500">예산의 {b.budget ? Math.round((b.actual_total / b.budget) * 100) : 0}% 사용</p>
     </Card>

@@ -70,7 +70,7 @@ export default function StockPage() {
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
               <span className="font-semibold">결제 수단</span>
               {Object.entries(PAY_LABEL).map(([k, v]) => (
-                <button key={k} onClick={() => setPay(k)} className={`rounded-md px-3 py-1.5 ${pay === k ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>{v}</button>
+                <button key={k} onClick={() => setPay(k)} className={`rounded-md px-3 py-1.5 ${pay === k ? "bg-[#6d53f1] text-white" : "bg-neutral-100"}`}>{v}</button>
               ))}
             </div>
             <p className="mt-3 text-sm text-neutral-600">합계 {items.reduce((a, i) => a + i.qty, 0)}개 · {won(total)}</p>
