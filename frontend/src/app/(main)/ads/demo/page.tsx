@@ -27,7 +27,7 @@ export default function AdsDemoPage() {
       <PageHeader crumb="ADS / 데모" title="메타·당근 광고 미리보기" desc="API 연동 전 단계라 샘플 데이터로 화면만 보여드려요." action={<Button variant="secondary" href="/ads">광고 홈</Button>} />
       <div className="mb-4 flex gap-2">
         {TABS.map((t) => (
-          <button key={t.key} onClick={() => setP(t.key)} className={`rounded-lg px-4 py-2 text-sm ${p === t.key ? "bg-neutral-900 text-white" : "border border-neutral-300"}`}>{t.label}</button>
+          <button key={t.key} onClick={() => setP(t.key)} className={`rounded-lg px-4 py-2 text-sm ${p === t.key ? "bg-[#6d53f1] text-white" : "border border-neutral-300"}`}>{t.label}</button>
         ))}
       </div>
       {error && <ErrorBox message={error} />}

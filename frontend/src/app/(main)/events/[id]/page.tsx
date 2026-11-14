@@ -19,7 +19,7 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub: string 
 
 function Go({ href, children, primary }: { href: string; children: React.ReactNode; primary?: boolean }) {
   return primary ? (
-    <Link href={href} className="inline-flex h-11 w-full max-w-[260px] items-center rounded-lg bg-neutral-900 px-3 text-sm font-medium text-white">{children} ↗</Link>
+    <Link href={href} className="inline-flex h-11 w-full max-w-[260px] items-center rounded-lg bg-[#6d53f1] px-3 text-sm font-medium text-white">{children} ↗</Link>
   ) : (
     <Link href={href} className="block text-sm font-medium text-neutral-900 hover:underline">{children} ↗</Link>
   );

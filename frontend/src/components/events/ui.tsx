@@ -34,7 +34,7 @@ type BtnProps = { children: ReactNode; onClick?: () => void; href?: string; vari
 export function Button({ children, onClick, href, variant = "primary", disabled, type = "button", className = "" }: BtnProps) {
   const base = "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
   const v = {
-    primary: "bg-neutral-900 text-white hover:bg-neutral-700",
+    primary: "bg-[#6d53f1] text-white hover:bg-[#5b42e0]",
     secondary: "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50",
     ghost: "text-neutral-600 hover:bg-neutral-100",
   }[variant];
@@ -48,7 +48,7 @@ export function Badge({ children, tone = "gray" }: { children: ReactNode; tone?:
     green: "bg-emerald-50 text-emerald-700",
     amber: "bg-amber-50 text-amber-700",
     red: "bg-red-50 text-red-700",
-    blue: "bg-sky-50 text-sky-700",
+    blue: "bg-[#6d53f1] text-white",
   }[tone];
   return <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${t}`}>{children}</span>;
 }
@@ -66,12 +66,12 @@ export function Field({ label, required, hint, children }: { label: string; requ
 }
 
 export const inputCls =
-  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none";
+  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#6d53f1] focus:outline-none";
 
 export function Spinner({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-neutral-600">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#6d53f1]/20 border-t-[#6d53f1]" />
       <p className="text-sm">{text}</p>
     </div>
   );
